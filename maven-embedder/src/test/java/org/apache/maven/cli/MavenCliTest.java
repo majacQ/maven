@@ -61,9 +61,16 @@ import org.apache.maven.toolchain.building.ToolchainsBuildingRequest;
 import org.apache.maven.toolchain.building.ToolchainsBuildingResult;
 import org.codehaus.plexus.DefaultPlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
+  <<<<<<< MNG-7032_versioncolours
+import org.eclipse.sisu.plexus.PlexusBeanModule;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+  =======
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+  >>>>>>> master
 import org.mockito.InOrder;
 
 public class MavenCliTest
