@@ -25,7 +25,11 @@ under the License.
   <parent>
     <groupId>org.apache.maven</groupId>
     <artifactId>maven</artifactId>
+  <<<<<<< maven-3.6.x
     <version>3.6.4-SNAPSHOT</version>
+  =======
+    <version>4.0.0-alpha-1-SNAPSHOT</version>
+  >>>>>>> master
   </parent>
 
   <artifactId>maven-artifact</artifactId>

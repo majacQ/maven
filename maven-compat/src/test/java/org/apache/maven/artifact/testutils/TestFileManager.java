@@ -44,9 +44,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import junit.framework.Assert;
-
 import org.codehaus.plexus.util.FileUtils;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestFileManager
 {
@@ -77,15 +79,7 @@ public class TestFileManager
     {
         callerInfo = new NullPointerException().getStackTrace()[2];
 
-        Runnable warning = new Runnable()
-        {
-
-            public void run()
-            {
-                maybeWarnAboutCleanUp();
-            }
-
-        };
+        Runnable warning = this::maybeWarnAboutCleanUp;
 
         cleanupWarning = new Thread( warning );
 
@@ -166,11 +160,11 @@ public class TestFileManager
 
         if ( shouldExist )
         {
-            Assert.assertTrue( file.exists() );
+            assertTrue( file.exists() );
         }
         else
         {
-            Assert.assertFalse( file.exists() );
+            assertFalse( file.exists() );
         }
     }
 
@@ -183,7 +177,7 @@ public class TestFileManager
 
         String contents = FileUtils.fileRead( file, encoding );
 
-        Assert.assertEquals( contentsTest, contents );
+        assertEquals( contentsTest, contents );
     }
 
     public File createFile( File dir, String filename, String contents, String encoding )

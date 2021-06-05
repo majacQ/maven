@@ -43,6 +43,8 @@ public class ArtifactRepositoryPolicy
 
     public static final String CHECKSUM_POLICY_IGNORE = "ignore";
 
+    public static final String DEFAULT_CHECKSUM_POLICY = CHECKSUM_POLICY_FAIL;
+
     private boolean enabled;
 
     private String updatePolicy;
@@ -71,7 +73,7 @@ public class ArtifactRepositoryPolicy
 
         if ( checksumPolicy == null )
         {
-            checksumPolicy = CHECKSUM_POLICY_WARN;
+            checksumPolicy = DEFAULT_CHECKSUM_POLICY;
         }
         this.checksumPolicy = checksumPolicy;
     }
@@ -138,7 +140,7 @@ public class ArtifactRepositoryPolicy
         else if ( updatePolicy.startsWith( UPDATE_POLICY_INTERVAL ) )
         {
             String s = updatePolicy.substring( UPDATE_POLICY_INTERVAL.length() + 1 );
-            int minutes = Integer.valueOf( s );
+            int minutes = Integer.parseInt( s );
             Calendar cal = Calendar.getInstance();
             cal.add( Calendar.MINUTE, -minutes );
             if ( cal.getTime().after( lastModified ) )
@@ -212,7 +214,7 @@ public class ArtifactRepositoryPolicy
         else if ( policy != null && policy.startsWith( ArtifactRepositoryPolicy.UPDATE_POLICY_INTERVAL ) )
         {
             String s = policy.substring( UPDATE_POLICY_INTERVAL.length() + 1 );
-            return Integer.valueOf( s );
+            return Integer.parseInt( s );
         }
         else
         {

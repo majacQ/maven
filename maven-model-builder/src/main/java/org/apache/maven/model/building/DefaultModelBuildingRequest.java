@@ -38,8 +38,7 @@ import org.apache.maven.model.resolution.WorkspaceModelResolver;
 public class DefaultModelBuildingRequest
     implements ModelBuildingRequest
 {
-
-    private Model rawModel;
+    private Model fileModel;
 
     private File pomFile;
 
@@ -73,6 +72,8 @@ public class DefaultModelBuildingRequest
 
     private WorkspaceModelResolver workspaceResolver;
 
+    private TransformerContextBuilder contextBuilder;
+
     /**
      * Creates an empty request.
      */
@@ -101,6 +102,8 @@ public class DefaultModelBuildingRequest
         setModelResolver( request.getModelResolver() );
         setModelBuildingListener( request.getModelBuildingListener() );
         setModelCache( request.getModelCache() );
+        setWorkspaceModelResolver( request.getWorkspaceModelResolver() );
+        setTransformerContextBuilder( request.getTransformerContextBuilder() );
     }
 
     @Override
@@ -383,15 +386,27 @@ public class DefaultModelBuildingRequest
     }
 
     @Override
+    public Model getFileModel()
+    {
+        return fileModel;
+    }
+
+    @Override
+    public ModelBuildingRequest setFileModel( Model fileModel )
+    {
+        this.fileModel = fileModel;
+        return this;
+    }
+
+    @Override
     public Model getRawModel()
     {
-        return rawModel;
+        return null;
     }
 
     @Override
     public ModelBuildingRequest setRawModel( Model rawModel )
     {
-        this.rawModel = rawModel;
         return this;
     }
 
@@ -405,6 +420,19 @@ public class DefaultModelBuildingRequest
     public ModelBuildingRequest setWorkspaceModelResolver( WorkspaceModelResolver workspaceResolver )
     {
         this.workspaceResolver = workspaceResolver;
+        return this;
+    }
+
+    @Override
+    public TransformerContextBuilder getTransformerContextBuilder()
+    {
+        return contextBuilder;
+    }
+
+    @Override
+    public ModelBuildingRequest setTransformerContextBuilder( TransformerContextBuilder contextBuilder )
+    {
+        this.contextBuilder = contextBuilder;
         return this;
     }
 

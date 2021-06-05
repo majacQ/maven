@@ -33,11 +33,15 @@ import org.apache.maven.execution.BuildSummary;
 import org.apache.maven.execution.ExecutionEvent;
 import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.logwrapper.LogLevelRecorder;
+import org.apache.maven.logwrapper.MavenSlf4jWrapperFactory;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.descriptor.MojoDescriptor;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.utils.logging.MessageBuilder;
+import org.apache.maven.shared.utils.logging.MessageUtils;
 import org.codehaus.plexus.util.StringUtils;
+import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,27 +50,46 @@ import org.slf4j.LoggerFactory;
  *
  * @author Benjamin Bentmann
  */
-public class ExecutionEventLogger
-    extends AbstractExecutionListener
+public class ExecutionEventLogger extends AbstractExecutionListener
 {
     private final Logger logger;
 
-    private static final int LINE_LENGTH = 72;
+    private static final int MAX_LOG_PREFIX_SIZE = 8; // "[ERROR] "
+    private static final int PROJECT_STATUS_SUFFIX_SIZE = 20; // "SUCCESS [  0.000 s]"
+    private static final int MIN_TERMINAL_WIDTH = 60;
+    private static final int DEFAULT_TERMINAL_WIDTH = 80;
+    private static final int MAX_TERMINAL_WIDTH = 130;
     private static final int MAX_PADDED_BUILD_TIME_DURATION_LENGTH = 9;
-    private static final int MAX_PROJECT_NAME_LENGTH = 52;
 
+    private final int terminalWidth;
+    private final int lineLength;
+    private final int maxProjectNameLength;
     private int totalProjects;
     private volatile int currentVisitedProjectCount;
 
     public ExecutionEventLogger()
     {
-        logger = LoggerFactory.getLogger( ExecutionEventLogger.class );
+        this( LoggerFactory.getLogger( ExecutionEventLogger.class ) );
     }
 
-    // TODO should we deprecate?
+    public ExecutionEventLogger( int terminalWidth )
+    {
+        this( LoggerFactory.getLogger( ExecutionEventLogger.class ), terminalWidth );
+    }
+
     public ExecutionEventLogger( Logger logger )
     {
+        this( logger, MessageUtils.getTerminalWidth() );
+    }
+
+    public ExecutionEventLogger( Logger logger, int terminalWidth )
+    {
         this.logger = Objects.requireNonNull( logger, "logger cannot be null" );
+        this.terminalWidth = Math.min( MAX_TERMINAL_WIDTH,
+                                       Math.max( terminalWidth < 0 ? DEFAULT_TERMINAL_WIDTH : terminalWidth,
+                                                 MIN_TERMINAL_WIDTH ) );
+        this.lineLength = this.terminalWidth - MAX_LOG_PREFIX_SIZE;
+        this.maxProjectNameLength = this.lineLength - PROJECT_STATUS_SUFFIX_SIZE;
     }
 
     private static String chars( char c, int count )
@@ -83,7 +106,7 @@ public class ExecutionEventLogger
 
     private void infoLine( char c )
     {
-        infoMain( chars( c, LINE_LENGTH ) );
+        infoMain( chars( c, lineLength ) );
     }
 
     private void infoMain( String msg )
@@ -114,7 +137,7 @@ public class ExecutionEventLogger
             final List<MavenProject> projects = event.getSession().getProjects();
             for ( MavenProject project : projects )
             {
-                int len = LINE_LENGTH - project.getName().length() - project.getPackaging().length() - 2;
+                int len = lineLength - project.getName().length() - project.getPackaging().length() - 2;
                 logger.info( "{}{}[{}]",
                         project.getName(), chars( ' ', ( len > 0 ) ? len : 1 ), project.getPackaging() );
             }
@@ -131,6 +154,20 @@ public class ExecutionEventLogger
             if ( event.getSession().getProjects().size() > 1 )
             {
                 logReactorSummary( event.getSession() );
+            }
+
+            ILoggerFactory iLoggerFactory = LoggerFactory.getILoggerFactory();
+
+            if ( iLoggerFactory instanceof MavenSlf4jWrapperFactory )
+            {
+                MavenSlf4jWrapperFactory loggerFactory = (MavenSlf4jWrapperFactory) iLoggerFactory;
+                loggerFactory.getLogLevelRecorder()
+                        .filter( LogLevelRecorder::metThreshold )
+                        .ifPresent( recorder ->
+                                event.getSession().getResult().addException( new Exception(
+                                        "Build failed due to log statements with a higher severity than allowed. "
+                                        + "Fix the logged issues or remove flag --fail-on-severity (-fos)." ) )
+                );
             }
 
             logResult( event.getSession() );
@@ -195,9 +232,9 @@ public class ExecutionEventLogger
                 buffer.append( ' ' );
             }
 
-            if ( buffer.length() <= MAX_PROJECT_NAME_LENGTH )
+            if ( buffer.length() <= maxProjectNameLength )
             {
-                while ( buffer.length() < MAX_PROJECT_NAME_LENGTH )
+                while ( buffer.length() < maxProjectNameLength )
                 {
                     buffer.append( '.' );
                 }
@@ -298,16 +335,16 @@ public class ExecutionEventLogger
 
             // -------< groupId:artifactId >-------
             String projectKey = project.getGroupId() + ':' + project.getArtifactId();
-            
-            final String preHeader  = "--< ";
+
+            final String preHeader = "--< ";
             final String postHeader = " >--";
 
             final int headerLen = preHeader.length() + projectKey.length() + postHeader.length();
 
-            String prefix = chars( '-', Math.max( 0, ( LINE_LENGTH - headerLen ) / 2 ) ) + preHeader;
+            String prefix = chars( '-', Math.max( 0, ( lineLength - headerLen ) / 2 ) ) + preHeader;
 
-            String suffix = postHeader
-                + chars( '-', Math.max( 0, LINE_LENGTH - headerLen - prefix.length() + preHeader.length() ) );
+            String suffix = postHeader + chars( '-',
+                    Math.max( 0, lineLength - headerLen - prefix.length() + preHeader.length() ) );
 
             logger.info( buffer().strong( prefix ).project( projectKey ).strong( suffix ).toString() );
 
@@ -328,14 +365,14 @@ public class ExecutionEventLogger
                 }
                 String progress = " [" + number + '/' + totalProjects + ']';
 
-                int pad = LINE_LENGTH - building.length() - progress.length();
+                int pad = lineLength - building.length() - progress.length();
 
                 infoMain( building + ( ( pad > 0 ) ? chars( ' ', pad ) : "" ) + progress );
             }
 
             // ----------[ packaging ]----------
-            prefix = chars( '-', Math.max( 0, ( LINE_LENGTH - project.getPackaging().length() - 4 ) / 2 ) );
-            suffix = chars( '-', Math.max( 0, LINE_LENGTH - project.getPackaging().length() - 4 - prefix.length() ) );
+            prefix = chars( '-', Math.max( 0, ( lineLength - project.getPackaging().length() - 4 ) / 2 ) );
+            suffix = chars( '-', Math.max( 0, lineLength - project.getPackaging().length() - 4 - prefix.length() ) );
             infoMain( prefix + "[ " + project.getPackaging() + " ]" + suffix );
         }
     }
@@ -345,7 +382,7 @@ public class ExecutionEventLogger
     {
         if ( logger.isWarnEnabled() )
         {
-            logger.warn( "Goal {} requires online mode for execution but Maven is currently offline, skipping",
+            logger.warn( "Goal '{}' requires online mode for execution but Maven is currently offline, skipping",
                     event.getMojoExecution().getGoal() );
         }
     }

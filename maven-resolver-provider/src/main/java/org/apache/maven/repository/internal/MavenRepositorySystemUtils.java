@@ -27,11 +27,6 @@ import org.eclipse.aether.collection.DependencyGraphTransformer;
 import org.eclipse.aether.collection.DependencyManager;
 import org.eclipse.aether.collection.DependencySelector;
 import org.eclipse.aether.collection.DependencyTraverser;
-import org.eclipse.aether.impl.ArtifactDescriptorReader;
-import org.eclipse.aether.impl.DefaultServiceLocator;
-import org.eclipse.aether.impl.MetadataGeneratorFactory;
-import org.eclipse.aether.impl.VersionRangeResolver;
-import org.eclipse.aether.impl.VersionResolver;
 import org.eclipse.aether.util.artifact.DefaultArtifactTypeRegistry;
 import org.eclipse.aether.util.graph.manager.ClassicDependencyManager;
 import org.eclipse.aether.util.graph.selector.AndDependencySelector;
@@ -64,11 +59,15 @@ public final class MavenRepositorySystemUtils
     }
 
     /**
+  <<<<<<< MRESOLVER-157
+  =======
      * Creates a new service locator that already knows about all service implementations included in this library. To
      * acquire a complete repository system, clients need to add some repository connectors for remote transfers.
      *
      * @return The new service locator, never {@code null}.
+     * @deprecated This method is deprecated along with {@link DefaultServiceLocator} (since Maven Resolver 1.7.0).
      */
+    @Deprecated
     public static DefaultServiceLocator newServiceLocator()
     {
         DefaultServiceLocator locator = new DefaultServiceLocator();
@@ -81,6 +80,7 @@ public final class MavenRepositorySystemUtils
     }
 
     /**
+  >>>>>>> master
      * Creates a new Maven-like repository system session by initializing the session with values typical for
      * Maven-based resolution. In more detail, this method configures settings relevant for the processing of dependency
      * graphs, most other settings remain at their generic default value. Use the various setters to further configure

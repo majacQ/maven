@@ -27,8 +27,8 @@ import org.apache.maven.toolchain.model.PersistedToolchains;
 import org.apache.maven.toolchain.model.ToolchainModel;
 import org.codehaus.plexus.interpolation.os.OperatingSystemUtils;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.MockitoAnnotations;
@@ -39,15 +39,15 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 
 public class DefaultToolchainsBuilderTest
 {
-    private static final String LS = System.getProperty( "line.separator" );
+    private static final String LS = System.lineSeparator();
 
     @Spy
     private DefaultToolchainsReader toolchainsReader;
@@ -58,7 +58,7 @@ public class DefaultToolchainsBuilderTest
     @InjectMocks
     private DefaultToolchainsBuilder toolchainBuilder;
 
-    @Before
+    @BeforeEach
     public void onSetup()
     {
         MockitoAnnotations.initMocks( this );

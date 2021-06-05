@@ -23,14 +23,17 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
 
 import org.apache.maven.RepositoryUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.model.Exclusion;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.util.StringUtils;
 import org.eclipse.aether.DefaultRepositorySystemSession;
@@ -53,18 +56,19 @@ import org.eclipse.aether.util.graph.manager.DependencyManagerUtils;
 /**
  * @author Benjamin Bentmann
  */
-@Component( role = ProjectDependenciesResolver.class )
+@Named
+@Singleton
 public class DefaultProjectDependenciesResolver
     implements ProjectDependenciesResolver
 {
 
-    @Requirement
+    @Inject
     private Logger logger;
 
-    @Requirement
+    @Inject
     private RepositorySystem repoSystem;
 
-    @Requirement
+    @Inject
     private List<RepositorySessionDecorator> decorators;
 
     public DependencyResolutionResult resolve( DependencyResolutionRequest request )
@@ -269,7 +273,7 @@ public class DefaultProjectDependenciesResolver
                 {
                     final String premanagedScope = DependencyManagerUtils.getPremanagedScope( node );
                     buffer.append( " (scope managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedScope, "default" ) );
+                    buffer.append( Objects.toString( premanagedScope, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -277,7 +281,7 @@ public class DefaultProjectDependenciesResolver
                 {
                     final String premanagedVersion = DependencyManagerUtils.getPremanagedVersion( node );
                     buffer.append( " (version managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedVersion, "default" ) );
+                    buffer.append( Objects.toString( premanagedVersion, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -285,7 +289,7 @@ public class DefaultProjectDependenciesResolver
                 {
                     final Boolean premanagedOptional = DependencyManagerUtils.getPremanagedOptional( node );
                     buffer.append( " (optionality managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedOptional, "default" ) );
+                    buffer.append( Objects.toString( premanagedOptional, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -296,7 +300,7 @@ public class DefaultProjectDependenciesResolver
                         DependencyManagerUtils.getPremanagedExclusions( node );
 
                     buffer.append( " (exclusions managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedExclusions, "default" ) );
+                    buffer.append( Objects.toString( premanagedExclusions, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -307,7 +311,7 @@ public class DefaultProjectDependenciesResolver
                         DependencyManagerUtils.getPremanagedProperties( node );
 
                     buffer.append( " (properties managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedProperties, "default" ) );
+                    buffer.append( Objects.toString( premanagedProperties, "default" ) );
                     buffer.append( ')' );
                 }
             }

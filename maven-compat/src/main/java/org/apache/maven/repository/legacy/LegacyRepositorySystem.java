@@ -396,13 +396,7 @@ public class LegacyRepositorySystem
         {
             String key = repository.getId();
 
-            List<ArtifactRepository> aliasedRepos = reposByKey.get( key );
-
-            if ( aliasedRepos == null )
-            {
-                aliasedRepos = new ArrayList<>();
-                reposByKey.put( key, aliasedRepos );
-            }
+            List<ArtifactRepository> aliasedRepos = reposByKey.computeIfAbsent( key, k -> new ArrayList<>() );
 
             aliasedRepos.add( repository );
         }
@@ -445,6 +439,8 @@ public class LegacyRepositorySystem
             effectiveRepository.setProxy( aliasedRepo.getProxy() );
 
             effectiveRepository.setMirroredRepositories( mirroredRepos );
+
+            effectiveRepository.setBlocked( aliasedRepo.isBlocked() );
 
             effectiveRepositories.add( effectiveRepository );
         }
@@ -502,6 +498,7 @@ public class LegacyRepositorySystem
                     mirror.setId( repo.getId() );
                     mirror.setUrl( repo.getUrl() );
                     mirror.setLayout( repo.getContentType() );
+                    mirror.setBlocked( repo.isBlocked() );
                     return mirror;
                 }
             }
@@ -538,6 +535,8 @@ public class LegacyRepositorySystem
             {
                 repository.setLayout( getLayout( mirror.getLayout() ) );
             }
+
+            repository.setBlocked( mirror.isBlocked() );
         }
     }
 

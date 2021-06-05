@@ -37,10 +37,10 @@ import org.apache.maven.artifact.Artifact;
 public class VersionRange
 {
     private static final Map<String, VersionRange> CACHE_SPEC =
-        Collections.<String, VersionRange>synchronizedMap( new WeakHashMap<String, VersionRange>() );
+        Collections.synchronizedMap( new WeakHashMap<>() );
 
     private static final Map<String, VersionRange> CACHE_VERSION =
-                    Collections.<String, VersionRange>synchronizedMap( new WeakHashMap<String, VersionRange>() );
+                    Collections.synchronizedMap( new WeakHashMap<>() );
 
     private final ArtifactVersion recommendedVersion;
 
@@ -64,7 +64,7 @@ public class VersionRange
     }
 
     /**
-     * @deprecated VersionRange is immutable, cloning is not useful and even more an issue against the cache 
+     * @deprecated VersionRange is immutable, cloning is not useful and even more an issue against the cache
      * @return a clone
      */
     @Deprecated

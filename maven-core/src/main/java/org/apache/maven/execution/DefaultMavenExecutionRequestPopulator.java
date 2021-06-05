@@ -28,6 +28,7 @@ import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Named;
+import javax.inject.Singleton;
 
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -53,12 +54,13 @@ import org.codehaus.plexus.util.StringUtils;
  * Assists in populating an execution request for invocation of Maven.
  */
 @Named
+@Singleton
 public class DefaultMavenExecutionRequestPopulator
     implements MavenExecutionRequestPopulator
 {
-            
+
     private final MavenRepositorySystem repositorySystem;
-    
+
     @Inject
     public DefaultMavenExecutionRequestPopulator( MavenRepositorySystem repositorySystem )
     {
@@ -78,7 +80,7 @@ public class DefaultMavenExecutionRequestPopulator
             {
                 if ( !groupedToolchains.containsKey( model.getType() ) )
                 {
-                    groupedToolchains.put( model.getType(), new ArrayList<ToolchainModel>() );
+                    groupedToolchains.put( model.getType(), new ArrayList<>() );
                 }
 
                 groupedToolchains.get( model.getType() ).add( model );
@@ -88,7 +90,7 @@ public class DefaultMavenExecutionRequestPopulator
         }
         return request;
     }
-    
+
     @Override
     public MavenExecutionRequest populateDefaults( MavenExecutionRequest request )
         throws MavenExecutionRequestPopulationException
@@ -105,11 +107,11 @@ public class DefaultMavenExecutionRequestPopulator
 
         return request;
     }
-    
+
     //
     //
     //
-    
+
     private void populateDefaultPluginGroups( MavenExecutionRequest request )
     {
         request.addPluginGroup( "org.apache.maven.plugins" );
@@ -209,10 +211,10 @@ public class DefaultMavenExecutionRequestPopulator
         {
             request.setBaseDirectory( request.getPom().getAbsoluteFile().getParentFile() );
         }
-    }   
-    
+    }
+
     /*if_not[MAVEN4]*/
-    
+
     @Override
     @Deprecated
     public MavenExecutionRequest populateFromSettings( MavenExecutionRequest request, Settings settings )
@@ -314,8 +316,8 @@ public class DefaultMavenExecutionRequestPopulator
         }
 
         return request;
-    }    
-    
+    }
+
     /*end[MAVEN4]*/
 
 }

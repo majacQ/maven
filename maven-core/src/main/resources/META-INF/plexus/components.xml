@@ -78,7 +78,7 @@ under the License.
         </phases>
         <default-phases>
           <clean>
-            org.apache.maven.plugins:maven-clean-plugin:2.5:clean
+            org.apache.maven.plugins:maven-clean-plugin:3.1.0:clean
           </clean>
         </default-phases>
         <!-- END SNIPPET: clean -->
@@ -101,13 +101,33 @@ under the License.
         </phases>
         <default-phases>
           <site>
-            org.apache.maven.plugins:maven-site-plugin:3.3:site
+            org.apache.maven.plugins:maven-site-plugin:3.9.1:site
           </site>
           <site-deploy>
-            org.apache.maven.plugins:maven-site-plugin:3.3:deploy
+            org.apache.maven.plugins:maven-site-plugin:3.9.1:deploy
           </site-deploy>
         </default-phases>
         <!-- END SNIPPET: site -->
+      </configuration>
+    </component>
+
+    <!-- 'wrapper' lifecycle, with default bindings -->
+    <component>
+      <role>org.apache.maven.lifecycle.Lifecycle</role>
+      <implementation>org.apache.maven.lifecycle.Lifecycle</implementation>
+      <role-hint>wrapper</role-hint>
+      <configuration>
+        <id>wrapper</id>
+        <!-- START SNIPPET: wrapper -->
+        <phases>
+          <phase>wrapper</phase>
+        </phases>
+        <default-phases>
+          <wrapper>
+            org.apache.maven.plugins:maven-wrapper-plugin:3.0.2:wrapper
+          </wrapper>
+        </default-phases>
+        <!-- END SNIPPET: wrapper -->
       </configuration>
     </component>
 

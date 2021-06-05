@@ -21,23 +21,22 @@ package org.apache.maven.cli.transfer;
 
 import java.util.Locale;
 
-import org.apache.commons.lang3.JavaVersion;
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.maven.cli.transfer.AbstractMavenTransferListener.FileSizeFormat;
 import org.apache.maven.cli.transfer.AbstractMavenTransferListener.FileSizeFormat.ScaleUnit;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class FileSizeFormatTest {
 
-    @Test( expected = IllegalArgumentException.class )
+    @Test
     public void testNegativeSize()
     {
         FileSizeFormat format = new FileSizeFormat( Locale.ENGLISH );
 
         long negativeSize = -100L;
-        format.format( negativeSize );
+        assertThrows( IllegalArgumentException.class, () -> format.format( negativeSize ) );
     }
 
     @Test
@@ -136,10 +135,7 @@ public class FileSizeFormatTest {
         long _50_bytes = 50L;
         assertEquals( "50 B", format.format( _50_bytes ) );
         assertEquals( "50 B", format.format( _50_bytes, ScaleUnit.BYTE ) );
-        if ( SystemUtils.isJavaVersionAtLeast( JavaVersion.JAVA_1_8 ) )
-        {
-            assertEquals( "0.1 kB", format.format( _50_bytes, ScaleUnit.KILOBYTE ) );
-        }
+        assertEquals( "0.1 kB", format.format( _50_bytes, ScaleUnit.KILOBYTE ) );
         assertEquals( "0 MB", format.format( _50_bytes, ScaleUnit.MEGABYTE ) );
         assertEquals( "0 GB", format.format( _50_bytes, ScaleUnit.GIGABYTE ) );
 
@@ -168,10 +164,7 @@ public class FileSizeFormatTest {
         assertEquals( "50 kB", format.format( _50_kilobytes ) );
         assertEquals( "50000 B", format.format( _50_kilobytes, ScaleUnit.BYTE ) );
         assertEquals( "50 kB", format.format( _50_kilobytes, ScaleUnit.KILOBYTE ) );
-        if ( SystemUtils.isJavaVersionAtLeast( JavaVersion.JAVA_1_8 ) )
-        {
-            assertEquals( "0.1 MB", format.format( _50_kilobytes, ScaleUnit.MEGABYTE ) );
-        }
+        assertEquals( "0.1 MB", format.format( _50_kilobytes, ScaleUnit.MEGABYTE ) );
         assertEquals( "0 GB", format.format( _50_kilobytes, ScaleUnit.GIGABYTE ) );
 
         long _999_kilobytes = 999L * 1000L;
@@ -200,10 +193,7 @@ public class FileSizeFormatTest {
         assertEquals( "50000000 B", format.format( _50_megabytes, ScaleUnit.BYTE ) );
         assertEquals( "50000 kB", format.format( _50_megabytes, ScaleUnit.KILOBYTE ) );
         assertEquals( "50 MB", format.format( _50_megabytes, ScaleUnit.MEGABYTE ) );
-        if ( SystemUtils.isJavaVersionAtLeast( JavaVersion.JAVA_1_8 ) )
-        {
-            assertEquals( "0.1 GB", format.format( _50_megabytes, ScaleUnit.GIGABYTE ) );
-        }
+        assertEquals( "0.1 GB", format.format( _50_megabytes, ScaleUnit.GIGABYTE ) );
 
         long _999_megabytes = 999L * 1000L * 1000L;
         assertEquals( "999 MB", format.format( _999_megabytes ) );
@@ -220,21 +210,21 @@ public class FileSizeFormatTest {
         assertEquals( "1.0 GB", format.format( _1000_megabytes, ScaleUnit.GIGABYTE ) );
     }
 
-    @Test( expected = IllegalArgumentException.class )
+    @Test
     public void testNegativeProgressedSize()
     {
         FileSizeFormat format = new FileSizeFormat( Locale.ENGLISH );
 
         long negativeProgressedSize = -100L;
-        format.formatProgress( negativeProgressedSize, 10L );
+        assertThrows( IllegalArgumentException.class, () -> format.formatProgress( negativeProgressedSize, 10L ) );
     }
 
-    @Test( expected = IllegalArgumentException.class )
+    @Test
     public void testNegativeProgressedSizeBiggerThanSize()
     {
         FileSizeFormat format = new FileSizeFormat( Locale.ENGLISH );
 
-        format.formatProgress( 100L, 10L );
+        assertThrows( IllegalArgumentException.class, () -> format.formatProgress( 100L, 10L ) );
     }
 
     @Test

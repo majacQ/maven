@@ -29,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
 import org.apache.maven.RepositoryUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
@@ -47,8 +51,6 @@ import org.apache.maven.plugin.version.PluginVersionResolutionException;
 import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.classworlds.realm.ClassRealm;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.codehaus.plexus.logging.Logger;
 import org.eclipse.aether.graph.DependencyFilter;
 import org.eclipse.aether.util.filter.ExclusionsDependencyFilter;
@@ -60,27 +62,28 @@ import org.eclipse.aether.util.filter.ExclusionsDependencyFilter;
  *
  * @author Benjamin Bentmann
  */
-@Component( role = ProjectBuildingHelper.class )
+@Named
+@Singleton
 public class DefaultProjectBuildingHelper
     implements ProjectBuildingHelper
 {
 
-    @Requirement
+    @Inject
     private Logger logger;
 
-    @Requirement
+    @Inject
     private PlexusContainer container;
 
-    @Requirement
+    @Inject
     private ClassRealmManager classRealmManager;
 
-    @Requirement
+    @Inject
     private ProjectRealmCache projectRealmCache;
 
-    @Requirement
+    @Inject
     private RepositorySystem repositorySystem;
 
-    @Requirement
+    @Inject
     private MavenPluginManager pluginManager;
 
     public List<ArtifactRepository> createArtifactRepositories( List<Repository> pomRepositories,
@@ -207,15 +210,14 @@ public class DefaultProjectBuildingHelper
                 exportedArtifacts.put( extensionRealm, extensionDescriptor.getExportedArtifacts() );
             }
 
-            if ( !plugin.isExtensions() && artifacts.size() == 2 && artifacts.get( 0 ).getFile() != null
-                && "plexus-utils".equals( artifacts.get( 1 ).getArtifactId() ) )
+            if ( !plugin.isExtensions() && artifacts.size() == 1 && artifacts.get( 0 ).getFile() != null )
             {
                 /*
                  * This is purely for backward-compat with 2.x where <extensions> consisting of a single artifact where
                  * loaded into the core and hence available to plugins, in contrast to bigger extensions that were
                  * loaded into a dedicated realm which is invisible to plugins (MNG-2749).
                  */
-                publicArtifacts.add( artifacts.get( 0 ) );
+                publicArtifacts.addAll( artifacts );
             }
         }
 

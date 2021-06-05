@@ -31,7 +31,6 @@ import org.apache.maven.toolchain.model.PersistedToolchains;
 import org.apache.maven.toolchain.model.TrackableBase;
 import org.codehaus.plexus.interpolation.EnvarBasedValueSource;
 import org.codehaus.plexus.interpolation.InterpolationException;
-import org.codehaus.plexus.interpolation.InterpolationPostProcessor;
 import org.codehaus.plexus.interpolation.RegexBasedInterpolator;
 
 import javax.inject.Inject;
@@ -45,7 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 
+ *
  * @author Robert Scholte
  * @since 3.3.0
  */
@@ -67,13 +66,13 @@ public class DefaultToolchainsBuilder
         throws ToolchainsBuildingException
     {
         ProblemCollector problems = ProblemCollectorFactory.newInstance( null );
-        
+
         PersistedToolchains globalToolchains = readToolchains( request.getGlobalToolchainsSource(), request, problems );
 
         PersistedToolchains userToolchains = readToolchains( request.getUserToolchainsSource(), request, problems );
 
         toolchainsMerger.merge( userToolchains, globalToolchains, TrackableBase.GLOBAL_LEVEL );
-        
+
         problems.setSource( "" );
 
         userToolchains = interpolate( userToolchains, problems );
@@ -114,19 +113,15 @@ public class DefaultToolchainsBuilder
                     + e.getMessage(), -1, -1, e );
         }
 
-        interpolator.addPostProcessor( new InterpolationPostProcessor()
+        interpolator.addPostProcessor( ( expression, value ) ->
         {
-            @Override
-            public Object execute( String expression, Object value )
+            if ( value != null )
             {
-                if ( value != null )
-                {
-                    // we're going to parse this back in as XML so we need to escape XML markup
-                    value = value.toString().replace( "&", "&amp;" ).replace( "<", "&lt;" ).replace( ">", "&gt;" );
-                    return value;
-                }
-                return null;
+                // we're going to parse this back in as XML so we need to escape XML markup
+                value = value.toString().replace( "&", "&amp;" ).replace( "<", "&lt;" ).replace( ">", "&gt;" );
+                return value;
             }
+            return null;
         } );
 
         try
@@ -198,7 +193,7 @@ public class DefaultToolchainsBuilder
 
         return toolchains;
     }
-    
+
     private boolean hasErrors( List<Problem> problems )
     {
         if ( problems != null )

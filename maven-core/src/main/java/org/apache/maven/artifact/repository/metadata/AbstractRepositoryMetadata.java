@@ -42,6 +42,8 @@ import java.io.Writer;
 public abstract class AbstractRepositoryMetadata
     implements RepositoryMetadata
 {
+    private static final String LS = System.lineSeparator();
+
     private Metadata metadata;
 
     protected AbstractRepositoryMetadata( Metadata metadata )
@@ -123,8 +125,7 @@ public abstract class AbstractRepositoryMetadata
 
         // beware meta-versions!
         String version = metadata.getVersion();
-        if ( version != null && ( Artifact.LATEST_VERSION.equals( version ) || Artifact.RELEASE_VERSION.equals(
-            version ) ) )
+        if ( Artifact.LATEST_VERSION.equals( version ) || Artifact.RELEASE_VERSION.equals( version ) )
         {
             // meta-versions are not valid <version/> values...don't write them.
             metadata.setVersion( null );
@@ -165,7 +166,6 @@ public abstract class AbstractRepositoryMetadata
     {
         Versioning versioning = new Versioning();
         versioning.setSnapshot( snapshot );
-        versioning.updateTimestamp();
         return versioning;
     }
 
@@ -199,10 +199,10 @@ public abstract class AbstractRepositoryMetadata
     {
         StringBuilder buffer = new StringBuilder( 256 );
 
-        buffer.append( "\nRepository Metadata\n--------------------------" );
-        buffer.append( "\nGroupId: " ).append( getGroupId() );
-        buffer.append( "\nArtifactId: " ).append( getArtifactId() );
-        buffer.append( "\nMetadata Type: " ).append( getClass().getName() );
+        buffer.append( LS ).append( "Repository Metadata" ).append( LS ).append( "--------------------------" );
+        buffer.append( LS ).append( "GroupId: " ).append( getGroupId() );
+        buffer.append( LS ).append( "ArtifactId: " ).append( getArtifactId() );
+        buffer.append( LS ).append( "Metadata Type: " ).append( getClass().getName() );
 
         return buffer.toString();
     }

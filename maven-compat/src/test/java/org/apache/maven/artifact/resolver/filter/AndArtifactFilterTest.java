@@ -21,9 +21,11 @@ package org.apache.maven.artifact.resolver.filter;
 
 import java.util.Arrays;
 
-import org.apache.maven.artifact.Artifact;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests {@link AndArtifactFilter}.
@@ -31,20 +33,14 @@ import junit.framework.TestCase;
  * @author Benjamin Bentmann
  */
 public class AndArtifactFilterTest
-    extends TestCase
 {
 
     private ArtifactFilter newSubFilter()
     {
-        return new ArtifactFilter()
-        {
-            public boolean include( Artifact artifact )
-            {
-                return false;
-            }
-        };
+        return artifact -> false;
     }
 
+    @Test
     public void testEquals()
     {
         AndArtifactFilter filter1 = new AndArtifactFilter();

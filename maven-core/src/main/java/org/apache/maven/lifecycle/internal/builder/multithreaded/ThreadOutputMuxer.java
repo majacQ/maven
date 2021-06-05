@@ -36,7 +36,7 @@ import org.apache.maven.lifecycle.internal.ProjectSegment;
  * <strong>NOTE:</strong> This class is not part of any public api and can be changed or deleted without prior notice.
  * This class in particular may spontaneously self-combust and be replaced by a plexus-compliant thread aware
  * logger implementation at any time.
- * 
+ *
  * @since 3.0
  * @author Kristian Rosenvold
  */
@@ -56,7 +56,7 @@ public class ThreadOutputMuxer
 
     private final PrintStream defaultPrintStream = new PrintStream( defaultOutputStreamForUnknownData );
 
-    private final Set<ProjectSegment> completedBuilds = Collections.synchronizedSet( new HashSet<ProjectSegment>() );
+    private final Set<ProjectSegment> completedBuilds = Collections.synchronizedSet( new HashSet<>() );
 
     private volatile ProjectSegment currentBuild;
 

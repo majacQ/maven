@@ -23,13 +23,16 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
 
 import org.apache.maven.RepositoryUtils;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.PluginResolutionException;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.util.StringUtils;
 import org.eclipse.aether.DefaultRepositorySystemSession;
@@ -40,8 +43,6 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.DependencyCollectionException;
-import org.eclipse.aether.collection.DependencyGraphTransformer;
-import org.eclipse.aether.collection.DependencySelector;
 import org.eclipse.aether.graph.DependencyFilter;
 import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.graph.DependencyVisitor;
@@ -57,9 +58,15 @@ import org.eclipse.aether.util.artifact.JavaScopes;
 import org.eclipse.aether.util.filter.AndDependencyFilter;
 import org.eclipse.aether.util.filter.ScopeDependencyFilter;
 import org.eclipse.aether.util.graph.manager.DependencyManagerUtils;
+  <<<<<<< MNG-7020
+  =======
 import org.eclipse.aether.util.graph.selector.AndDependencySelector;
 import org.eclipse.aether.util.graph.transformer.ChainedDependencyGraphTransformer;
+  >>>>>>> master
 import org.eclipse.aether.util.repository.SimpleArtifactDescriptorPolicy;
+import org.eclipse.aether.util.version.GenericVersionScheme;
+import org.eclipse.aether.version.InvalidVersionSpecificationException;
+import org.eclipse.aether.version.VersionRange;
 
 /**
  * Assists in resolving the dependencies of a plugin. <strong>Warning:</strong> This is an internal utility class that
@@ -69,18 +76,37 @@ import org.eclipse.aether.util.repository.SimpleArtifactDescriptorPolicy;
  * @since 3.0
  * @author Benjamin Bentmann
  */
-@Component( role = PluginDependenciesResolver.class )
+@Named
+@Singleton
 public class DefaultPluginDependenciesResolver
     implements PluginDependenciesResolver
 {
+    private static final String MAVENCORE_COMPATIBILITY_VERSIONS = "(,)";
 
     private static final String REPOSITORY_CONTEXT = "plugin";
 
-    @Requirement
+    @Inject
     private Logger logger;
 
-    @Requirement
+    @Inject
     private RepositorySystem repoSystem;
+    
+    private final VersionRange mavenCompatibilityVersionRange;
+    
+    public DefaultPluginDependenciesResolver() 
+    {
+        try
+        {
+            // o.a.m.plugins:maven-compiler-plugin:jar:3.1 depends on o.a.m:maven-toolchain:jar:1.0
+            // maven-its:mng-4666 depends on o.a.m:maven-model:0.1-stub
+            this.mavenCompatibilityVersionRange =
+                new GenericVersionScheme().parseVersionRange( MAVENCORE_COMPATIBILITY_VERSIONS );
+        }
+        catch ( InvalidVersionSpecificationException e )
+        {
+            throw new RuntimeException( e );
+        }
+    }
 
     private Artifact toArtifact( Plugin plugin, RepositorySystemSession session )
     {
@@ -141,7 +167,7 @@ public class DefaultPluginDependenciesResolver
                                                 List<RemoteRepository> repositories, RepositorySystemSession session )
         throws PluginResolutionException
     {
-        return resolveInternal( plugin, null /* pluginArtifact */, dependencyFilter, null /* transformer */,
+        return resolveInternal( plugin, null /* pluginArtifact */, dependencyFilter,
                                 repositories, session );
     }
 
@@ -149,12 +175,11 @@ public class DefaultPluginDependenciesResolver
                                    List<RemoteRepository> repositories, RepositorySystemSession session )
         throws PluginResolutionException
     {
-        return resolveInternal( plugin, pluginArtifact, dependencyFilter, new PlexusUtilsInjector(), repositories,
+        return resolveInternal( plugin, pluginArtifact, dependencyFilter, repositories,
                                 session );
     }
 
     private DependencyNode resolveInternal( Plugin plugin, Artifact pluginArtifact, DependencyFilter dependencyFilter,
-                                            DependencyGraphTransformer transformer,
                                             List<RemoteRepository> repositories, RepositorySystemSession session )
         throws PluginResolutionException
     {
@@ -172,15 +197,16 @@ public class DefaultPluginDependenciesResolver
 
         try
         {
-            DependencySelector selector =
-                AndDependencySelector.newInstance( session.getDependencySelector(), new WagonExcluder() );
-
-            transformer =
-                ChainedDependencyGraphTransformer.newInstance( session.getDependencyGraphTransformer(), transformer );
-
             DefaultRepositorySystemSession pluginSession = new DefaultRepositorySystemSession( session );
+  <<<<<<< MNG-7020
+            pluginSession.setDependencySelector( session.getDependencySelector() );
+            pluginSession.setDependencyGraphTransformer( session.getDependencyGraphTransformer() );
+  =======
             pluginSession.setDependencySelector( selector );
-            pluginSession.setDependencyGraphTransformer( transformer );
+            pluginSession.setDependencyGraphTransformer( ChainedDependencyGraphTransformer.newInstance( 
+                                                session.getDependencyGraphTransformer(),
+                                                new MavenCompatibilityChecker( mavenCompatibilityVersionRange ) ) );
+  >>>>>>> master
 
             CollectRequest request = new CollectRequest();
             request.setRequestContext( REPOSITORY_CONTEXT );
@@ -258,7 +284,7 @@ public class DefaultPluginDependenciesResolver
                 {
                     final String premanagedScope = DependencyManagerUtils.getPremanagedScope( node );
                     buffer.append( " (scope managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedScope, "default" ) );
+                    buffer.append( Objects.toString( premanagedScope, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -266,7 +292,7 @@ public class DefaultPluginDependenciesResolver
                 {
                     final String premanagedVersion = DependencyManagerUtils.getPremanagedVersion( node );
                     buffer.append( " (version managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedVersion, "default" ) );
+                    buffer.append( Objects.toString( premanagedVersion, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -274,7 +300,7 @@ public class DefaultPluginDependenciesResolver
                 {
                     final Boolean premanagedOptional = DependencyManagerUtils.getPremanagedOptional( node );
                     buffer.append( " (optionality managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedOptional, "default" ) );
+                    buffer.append( Objects.toString( premanagedOptional, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -285,7 +311,7 @@ public class DefaultPluginDependenciesResolver
                         DependencyManagerUtils.getPremanagedExclusions( node );
 
                     buffer.append( " (exclusions managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedExclusions, "default" ) );
+                    buffer.append( Objects.toString( premanagedExclusions, "default" ) );
                     buffer.append( ')' );
                 }
 
@@ -296,7 +322,7 @@ public class DefaultPluginDependenciesResolver
                         DependencyManagerUtils.getPremanagedProperties( node );
 
                     buffer.append( " (properties managed from " );
-                    buffer.append( StringUtils.defaultString( premanagedProperties, "default" ) );
+                    buffer.append( Objects.toString( premanagedProperties, "default" ) );
                     buffer.append( ')' );
                 }
             }

@@ -25,7 +25,11 @@ under the License.
   <parent>
     <groupId>org.apache.maven</groupId>
     <artifactId>maven</artifactId>
+  <<<<<<< maven-3.6.x
     <version>3.6.4-SNAPSHOT</version>
+  =======
+    <version>4.0.0-alpha-1-SNAPSHOT</version>
+  >>>>>>> master
   </parent>
 
   <artifactId>maven-model-builder</artifactId>
@@ -59,6 +63,11 @@ under the License.
       <artifactId>maven-builder-support</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-model-transform</artifactId>
+    </dependency>
+    <!-- Testing -->
+    <dependency>
       <groupId>org.eclipse.sisu</groupId>
       <artifactId>org.eclipse.sisu.inject</artifactId>
     </dependency>
@@ -67,11 +76,20 @@ under the License.
       <artifactId>org.eclipse.sisu.plexus</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Testing -->
     <dependency>
       <groupId>com.google.inject</groupId>
       <artifactId>guice</artifactId>
       <classifier>no_aop</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>failureaccess</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -84,18 +102,13 @@ under the License.
       <artifactId>xmlunit-matchers</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-reflect</artifactId>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.plexus</groupId>
-        <artifactId>plexus-component-metadata</artifactId>
+        <groupId>org.eclipse.sisu</groupId>
+        <artifactId>sisu-maven-plugin</artifactId>
       </plugin>
     </plugins>
   </build>

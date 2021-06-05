@@ -32,6 +32,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
 
 import org.apache.maven.RepositoryUtils;
 import org.apache.maven.artifact.Artifact;
@@ -40,6 +45,7 @@ import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.LegacyLocalRepositoryManager;
 import org.apache.maven.bridge.MavenRepositorySystem;
+import org.apache.maven.feature.Features;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
@@ -49,6 +55,8 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.Profile;
 import org.apache.maven.model.ReportPlugin;
+import org.apache.maven.model.building.ArtifactModelSource;
+import org.apache.maven.model.building.TransformerContextBuilder;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.DefaultModelProblem;
 import org.apache.maven.model.building.FileModelSource;
@@ -60,10 +68,10 @@ import org.apache.maven.model.building.ModelProblem;
 import org.apache.maven.model.building.ModelProcessor;
 import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.building.StringModelSource;
+import org.apache.maven.model.building.TransformerContext;
 import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.repository.internal.ArtifactDescriptorUtils;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
+import org.apache.maven.repository.internal.DefaultModelCache;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.util.Os;
 import org.codehaus.plexus.util.StringUtils;
@@ -79,39 +87,35 @@ import org.eclipse.aether.resolution.ArtifactResult;
 /**
  * DefaultProjectBuilder
  */
-@Component( role = ProjectBuilder.class )
+@Named
+@Singleton
 public class DefaultProjectBuilder
     implements ProjectBuilder
 {
 
-    public static final String DISABLE_GLOBAL_MODEL_CACHE_SYSTEM_PROPERTY =
-            "maven.defaultProjectBuilder.disableGlobalModelCache";
-
-    @Requirement
+    @Inject
     private Logger logger;
 
-    @Requirement
+    @Inject
     private ModelBuilder modelBuilder;
 
-    @Requirement
+    @Inject
     private ModelProcessor modelProcessor;
 
-    @Requirement
+    @Inject
     private ProjectBuildingHelper projectBuildingHelper;
 
-    @Requirement
+    @Inject
     private MavenRepositorySystem repositorySystem;
 
-    @Requirement
+    @Inject
     private org.eclipse.aether.RepositorySystem repoSystem;
 
-    @Requirement
+    @Inject
     private RemoteRepositoryManager repositoryManager;
 
-    @Requirement
+    @Inject
     private ProjectDependenciesResolver dependencyResolver;
-
-    private final ReactorModelCache modelCache = new ReactorModelCache();
 
     // ----------------------------------------------------------------------
     // MavenProjectBuilder Implementation
@@ -122,12 +126,7 @@ public class DefaultProjectBuilder
         throws ProjectBuildingException
     {
         return build( pomFile, new FileModelSource( pomFile ),
-                new InternalConfig( request, null, useGlobalModelCache() ? getModelCache() : null ) );
-    }
-
-    private boolean useGlobalModelCache()
-    {
-        return !Boolean.getBoolean( DISABLE_GLOBAL_MODEL_CACHE_SYSTEM_PROPERTY );
+                new InternalConfig( request, null, null ) );
     }
 
     @Override
@@ -135,7 +134,7 @@ public class DefaultProjectBuilder
         throws ProjectBuildingException
     {
         return build( null, modelSource,
-                 new InternalConfig( request, null, useGlobalModelCache() ? getModelCache() : null ) );
+                 new InternalConfig( request, null, null ) );
     }
 
     private ProjectBuildingResult build( File pomFile, ModelSource modelSource, InternalConfig config )
@@ -185,8 +184,8 @@ public class DefaultProjectBuilder
 
                 modelProblems = result.getProblems();
 
-                initProject( project, Collections.<String, MavenProject>emptyMap(), true,
-                             result, new HashMap<File, Boolean>(), projectBuildingRequest );
+                initProject( project, Collections.emptyMap(), true,
+                             result, new HashMap<>(), projectBuildingRequest );
             }
             else if ( projectBuildingRequest.isResolveDependencies() )
             {
@@ -256,14 +255,7 @@ public class DefaultProjectBuilder
 
     private List<String> getProfileIds( List<Profile> profiles )
     {
-        List<String> ids = new ArrayList<>( profiles.size() );
-
-        for ( Profile profile : profiles )
-        {
-            ids.add( profile.getId() );
-        }
-
-        return ids;
+        return profiles.stream().map( Profile::getId ).collect( Collectors.toList() );
     }
 
     private ModelBuildingRequest getModelBuildingRequest( InternalConfig config )
@@ -287,7 +279,12 @@ public class DefaultProjectBuilder
         request.setUserProperties( configuration.getUserProperties() );
         request.setBuildStartTime( configuration.getBuildStartTime() );
         request.setModelResolver( resolver );
-        request.setModelCache( config.modelCache );
+        // this is a hint that we want to build 1 file, so don't cache. See MNG-7063
+        if ( config.modelPool != null )
+        {
+            request.setModelCache( DefaultModelCache.newInstance( config.session ) );
+        }
+        request.setTransformerContextBuilder( config.transformerContextBuilder );
 
         return request;
     }
@@ -306,7 +303,8 @@ public class DefaultProjectBuilder
         org.eclipse.aether.artifact.Artifact pomArtifact = RepositoryUtils.toArtifact( artifact );
         pomArtifact = ArtifactDescriptorUtils.toPomArtifact( pomArtifact );
 
-        InternalConfig config = new InternalConfig( request, null, useGlobalModelCache() ? getModelCache() : null );
+        InternalConfig config =
+            new InternalConfig( request, null, null );
 
         boolean localProject;
 
@@ -339,7 +337,16 @@ public class DefaultProjectBuilder
             artifact.setResolved( true );
         }
 
-        return build( localProject ? pomFile : null, new FileModelSource( pomFile ), config );
+        if ( localProject )
+        {
+            return build( pomFile, new FileModelSource( pomFile ), config );
+        }
+        else
+        {
+            return build( null, new ArtifactModelSource( pomFile, artifact.getGroupId(), artifact.getArtifactId(),
+                                                         artifact.getVersion() ),
+                          config );
+        }
     }
 
     private ModelSource createStubModelSource( Artifact artifact )
@@ -366,30 +373,37 @@ public class DefaultProjectBuilder
 
         List<InterimResult> interimResults = new ArrayList<>();
 
-        ReactorModelPool modelPool = new ReactorModelPool();
+        ReactorModelPool.Builder poolBuilder = new ReactorModelPool.Builder();
+        final ReactorModelPool modelPool = poolBuilder.build();
 
-        InternalConfig config = new InternalConfig( request, modelPool,
-                useGlobalModelCache() ? getModelCache() : new ReactorModelCache() );
+        InternalConfig config =
+            new InternalConfig( request, modelPool, modelBuilder.newTransformerContextBuilder() );
 
-        Map<String, MavenProject> projectIndex = new HashMap<>( 256 );
+        Map<File, MavenProject> projectIndex = new HashMap<>( 256 );
 
+        // phase 1: get file Models from the reactor.
         boolean noErrors =
-            build( results, interimResults, projectIndex, pomFiles, new LinkedHashSet<File>(), true, recursive,
-                   config );
-
-        populateReactorModelPool( modelPool, interimResults );
+            build( results, interimResults, projectIndex, pomFiles, new LinkedHashSet<>(), true, recursive,
+                   config, poolBuilder );
 
         ClassLoader oldContextClassLoader = Thread.currentThread().getContextClassLoader();
 
         try
         {
+            // Phase 2: get effective models from the reactor
             noErrors =
-                build( results, new ArrayList<MavenProject>(), projectIndex, interimResults, request,
-                       new HashMap<File, Boolean>(), config.session ) && noErrors;
+                build( results, new ArrayList<>(), projectIndex, interimResults, request,
+                        new HashMap<>(), config.session ) && noErrors;
         }
         finally
         {
             Thread.currentThread().setContextClassLoader( oldContextClassLoader );
+        }
+
+        if ( Features.buildConsumer().isActive() )
+        {
+            request.getRepositorySession().getData().set( TransformerContext.KEY,
+                                                          config.transformerContextBuilder.build() );
         }
 
         if ( !noErrors )
@@ -402,8 +416,9 @@ public class DefaultProjectBuilder
 
     @SuppressWarnings( "checkstyle:parameternumber" )
     private boolean build( List<ProjectBuildingResult> results, List<InterimResult> interimResults,
-                           Map<String, MavenProject> projectIndex, List<File> pomFiles, Set<File> aggregatorFiles,
-                           boolean isRoot, boolean recursive, InternalConfig config )
+                           Map<File, MavenProject> projectIndex, List<File> pomFiles, Set<File> aggregatorFiles,
+                           boolean root, boolean recursive, InternalConfig config,
+                           ReactorModelPool.Builder poolBuilder )
     {
         boolean noErrors = true;
 
@@ -411,7 +426,8 @@ public class DefaultProjectBuilder
         {
             aggregatorFiles.add( pomFile );
 
-            if ( !build( results, interimResults, projectIndex, pomFile, aggregatorFiles, isRoot, recursive, config ) )
+            if ( !build( results, interimResults, projectIndex, pomFile, aggregatorFiles, root, recursive, config,
+                         poolBuilder ) )
             {
                 noErrors = false;
             }
@@ -424,19 +440,19 @@ public class DefaultProjectBuilder
 
     @SuppressWarnings( "checkstyle:parameternumber" )
     private boolean build( List<ProjectBuildingResult> results, List<InterimResult> interimResults,
-                           Map<String, MavenProject> projectIndex, File pomFile, Set<File> aggregatorFiles,
-                           boolean isRoot, boolean recursive, InternalConfig config )
+                           Map<File, MavenProject> projectIndex, File pomFile, Set<File> aggregatorFiles,
+                           boolean isRoot, boolean recursive, InternalConfig config,
+                           ReactorModelPool.Builder poolBuilder )
     {
         boolean noErrors = true;
-
-        ModelBuildingRequest request = getModelBuildingRequest( config );
 
         MavenProject project = new MavenProject();
         project.setFile( pomFile );
 
-        request.setPomFile( pomFile );
-        request.setTwoPhaseBuilding( true );
-        request.setLocationTracking( true );
+        ModelBuildingRequest request = getModelBuildingRequest( config )
+                        .setPomFile( pomFile )
+                        .setTwoPhaseBuilding( true )
+                        .setLocationTracking( true );
 
         DefaultModelBuildingListener listener =
             new DefaultModelBuildingListener( project, projectBuildingHelper, config.request );
@@ -450,7 +466,7 @@ public class DefaultProjectBuilder
         catch ( ModelBuildingException e )
         {
             result = e.getResult();
-            if ( result == null || result.getEffectiveModel() == null )
+            if ( result == null || result.getFileModel() == null )
             {
                  results.add( new DefaultProjectBuildingResult( e.getModelId(), pomFile, e.getProblems() ) );
 
@@ -461,29 +477,17 @@ public class DefaultProjectBuilder
             noErrors = false;
         }
 
-        Model model = result.getEffectiveModel();
-        try
-        {
-            // first pass: build without building parent.
-            initProject( project, projectIndex, false, result, new HashMap<File, Boolean>( 0 ), config.request );
-        }
-        catch ( InvalidArtifactRTException iarte )
-        {
-            result.getProblems().add( new DefaultModelProblem( null, ModelProblem.Severity.ERROR, null, model, -1, -1,
-                  iarte ) );
-        }
+        Model model = result.getFileModel().clone();
 
-        projectIndex.put( result.getModelIds().get( 0 ), project );
+        poolBuilder.put( model.getPomFile().toPath(),  model );
 
         InterimResult interimResult = new InterimResult( pomFile, request, result, listener, isRoot );
         interimResults.add( interimResult );
 
-        if ( recursive && !model.getModules().isEmpty() )
+        if ( recursive )
         {
             File basedir = pomFile.getParentFile();
-
             List<File> moduleFiles = new ArrayList<>();
-
             for ( String module : model.getModules() )
             {
                 if ( StringUtils.isEmpty( module ) )
@@ -556,11 +560,13 @@ public class DefaultProjectBuilder
             interimResult.modules = new ArrayList<>();
 
             if ( !build( results, interimResult.modules, projectIndex, moduleFiles, aggregatorFiles, false,
-                         recursive, config ) )
+                         recursive, config, poolBuilder ) )
             {
                 noErrors = false;
             }
         }
+
+        projectIndex.put( pomFile, project );
 
         return noErrors;
     }
@@ -592,19 +598,8 @@ public class DefaultProjectBuilder
 
     }
 
-    private void populateReactorModelPool( ReactorModelPool reactorModelPool, List<InterimResult> interimResults )
-    {
-        for ( InterimResult interimResult : interimResults )
-        {
-            Model model = interimResult.result.getEffectiveModel();
-            reactorModelPool.put( model.getGroupId(), model.getArtifactId(), model.getVersion(), model.getPomFile() );
-
-            populateReactorModelPool( reactorModelPool, interimResult.modules );
-        }
-    }
-
     private boolean build( List<ProjectBuildingResult> results, List<MavenProject> projects,
-                           Map<String, MavenProject> projectIndex, List<InterimResult> interimResults,
+                           Map<File, MavenProject> projectIndex, List<InterimResult> interimResults,
                            ProjectBuildingRequest request, Map<File, Boolean> profilesXmls,
                            RepositorySystemSession session )
     {
@@ -649,12 +644,14 @@ public class DefaultProjectBuilder
             catch ( ModelBuildingException e )
             {
                 DefaultProjectBuildingResult result = null;
-                if ( project == null )
+                if ( project == null || interimResult.result.getEffectiveModel() == null )
                 {
                     result = new DefaultProjectBuildingResult( e.getModelId(), interimResult.pomFile, e.getProblems() );
                 }
                 else
                 {
+                    project.setModel( interimResult.result.getEffectiveModel() );
+
                     result = new DefaultProjectBuildingResult( project, e.getProblems(), null );
                 }
                 results.add( result );
@@ -667,15 +664,14 @@ public class DefaultProjectBuilder
     }
 
     @SuppressWarnings( "checkstyle:methodlength" )
-    private void initProject( MavenProject project, Map<String, MavenProject> projects,
+    private void initProject( MavenProject project, Map<File, MavenProject> projects,
                               boolean buildParentIfNotExisting, ModelBuildingResult result,
                               Map<File, Boolean> profilesXmls, ProjectBuildingRequest projectBuildingRequest )
     {
         Model model = result.getEffectiveModel();
 
         project.setModel( model );
-        project.setOriginalModel( result.getRawModel() );
-        project.setFile( model.getPomFile() );
+        project.setOriginalModel( result.getFileModel() );
 
         initParent( project, projects, buildParentIfNotExisting, result, projectBuildingRequest );
 
@@ -701,16 +697,6 @@ public class DefaultProjectBuilder
         for ( String modelId : result.getModelIds() )
         {
             project.setInjectedProfileIds( modelId, getProfileIds( result.getActivePomProfiles( modelId ) ) );
-        }
-
-        String modelId = findProfilesXml( result, profilesXmls );
-        if ( modelId != null )
-        {
-            ModelProblem problem =
-                new DefaultModelProblem( "Detected profiles.xml alongside " + modelId
-                    + ", this file is no longer supported and was ignored" + ", please use the settings.xml instead",
-                                         ModelProblem.Severity.WARNING, ModelProblem.Version.V30, model, -1, -1, null );
-            result.getProblems().add( problem );
         }
 
         //
@@ -862,7 +848,7 @@ public class DefaultProjectBuilder
                 DeploymentRepository r = project.getDistributionManagement().getRepository();
                 if ( !StringUtils.isEmpty( r.getId() ) && !StringUtils.isEmpty( r.getUrl() ) )
                 {
-                    ArtifactRepository repo = repositorySystem.buildArtifactRepository( r );
+                    ArtifactRepository repo = MavenRepositorySystem.buildArtifactRepository( r );
                     repositorySystem.injectProxy( projectBuildingRequest.getRepositorySession(),
                                                   Arrays.asList( repo ) );
                     repositorySystem.injectAuthentication( projectBuildingRequest.getRepositorySession(),
@@ -886,7 +872,7 @@ public class DefaultProjectBuilder
                 DeploymentRepository r = project.getDistributionManagement().getSnapshotRepository();
                 if ( !StringUtils.isEmpty( r.getId() ) && !StringUtils.isEmpty( r.getUrl() ) )
                 {
-                    ArtifactRepository repo = repositorySystem.buildArtifactRepository( r );
+                    ArtifactRepository repo = MavenRepositorySystem.buildArtifactRepository( r );
                     repositorySystem.injectProxy( projectBuildingRequest.getRepositorySession(),
                                                   Arrays.asList( repo ) );
                     repositorySystem.injectAuthentication( projectBuildingRequest.getRepositorySession(),
@@ -902,7 +888,7 @@ public class DefaultProjectBuilder
         }
     }
 
-    private void initParent( MavenProject project, Map<String, MavenProject> projects, boolean buildParentIfNotExisting,
+    private void initParent( MavenProject project, Map<File, MavenProject> projects, boolean buildParentIfNotExisting,
                              ModelBuildingResult result, ProjectBuildingRequest projectBuildingRequest )
     {
         Model parentModel = result.getModelIds().size() > 1 && !result.getModelIds().get( 1 ).isEmpty()
@@ -921,7 +907,7 @@ public class DefaultProjectBuilder
             // org.apache.maven.its.mng4834:parent:0.1
             String parentModelId = result.getModelIds().get( 1 );
             File parentPomFile = result.getRawModel( parentModelId ).getPomFile();
-            MavenProject parent = projects.get( parentModelId );
+            MavenProject parent = projects.get( parentPomFile );
             if ( parent == null && buildParentIfNotExisting )
             {
                 //
@@ -1017,33 +1003,6 @@ public class DefaultProjectBuilder
         return version;
     }
 
-    private String findProfilesXml( ModelBuildingResult result, Map<File, Boolean> profilesXmls )
-    {
-        for ( String modelId : result.getModelIds() )
-        {
-            Model model = result.getRawModel( modelId );
-
-            File basedir = model.getProjectDirectory();
-            if ( basedir == null )
-            {
-                break;
-            }
-
-            Boolean profilesXml = profilesXmls.get( basedir );
-            if ( profilesXml == null )
-            {
-                profilesXml = new File( basedir, "profiles.xml" ).exists();
-                profilesXmls.put( basedir, profilesXml );
-            }
-            if ( profilesXml )
-            {
-                return modelId;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * InternalConfig
      */
@@ -1058,24 +1017,22 @@ public class DefaultProjectBuilder
 
         private final ReactorModelPool modelPool;
 
-        private final ReactorModelCache modelCache;
+        private final TransformerContextBuilder transformerContextBuilder;
 
-        InternalConfig( ProjectBuildingRequest request, ReactorModelPool modelPool, ReactorModelCache modelCache )
+        InternalConfig( ProjectBuildingRequest request, ReactorModelPool modelPool,
+                        TransformerContextBuilder transformerContextBuilder )
         {
             this.request = request;
             this.modelPool = modelPool;
-            this.modelCache = modelCache;
+            this.transformerContextBuilder = transformerContextBuilder;
+
             session =
                 LegacyLocalRepositoryManager.overlay( request.getLocalRepository(), request.getRepositorySession(),
                                                       repoSystem );
             repositories = RepositoryUtils.toRepos( request.getRemoteRepositories() );
+
         }
 
-    }
-
-    private ReactorModelCache getModelCache()
-    {
-        return this.modelCache;
     }
 
 }

@@ -27,14 +27,18 @@ import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.model.building.SimpleProblemCollector;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author <a href="mailto:trygvis@inamo.no">Trygve Laugst&oslash;l</a>
  */
 public class DefaultModelValidatorTest
-    extends TestCase
 {
 
     private ModelValidator validator;
@@ -44,7 +48,7 @@ public class DefaultModelValidatorTest
     {
         String resource = "/poms/validation/" + pom;
         InputStream is = getClass().getResourceAsStream( resource );
-        assertNotNull( "missing resource: " + resource, is );
+        assertNotNull( is, "missing resource: " + resource );
         return new MavenXpp3Reader().read( is );
     }
 
@@ -65,9 +69,11 @@ public class DefaultModelValidatorTest
     {
         ModelBuildingRequest request = new DefaultModelBuildingRequest().setValidationLevel( level );
 
-        SimpleProblemCollector problems = new SimpleProblemCollector( read( pom ) );
+        Model model =  read( pom );
 
-        validator.validateEffectiveModel( problems.getModel(), request, problems );
+        SimpleProblemCollector problems = new SimpleProblemCollector( model );
+
+        validator.validateEffectiveModel( model, request, problems );
 
         return problems;
     }
@@ -77,43 +83,44 @@ public class DefaultModelValidatorTest
     {
         ModelBuildingRequest request = new DefaultModelBuildingRequest().setValidationLevel( level );
 
-        SimpleProblemCollector problems = new SimpleProblemCollector( read( pom ) );
+        Model model = read( pom );
 
-        validator.validateRawModel( problems.getModel(), request, problems );
+        SimpleProblemCollector problems = new SimpleProblemCollector( model );
+
+        validator.validateFileModel( model, request, problems );
+
+        validator.validateRawModel( model, request, problems );
 
         return problems;
     }
 
     private void assertContains( String msg, String substring )
     {
-        assertTrue( "\"" + substring + "\" was not found in: " + msg, msg.contains( substring ) );
+        assertTrue( msg.contains( substring ), "\"" + substring + "\" was not found in: " + msg );
     }
 
-    @Override
-    protected void setUp()
+    @BeforeEach
+    public void setUp()
         throws Exception
     {
-        super.setUp();
-
         validator = new DefaultModelValidator();
     }
 
-    @Override
-    protected void tearDown()
+    @AfterEach
+    public void tearDown()
         throws Exception
     {
         this.validator = null;
-
-        super.tearDown();
     }
 
     private void assertViolations( SimpleProblemCollector result, int fatals, int errors, int warnings )
     {
-        assertEquals( String.valueOf( result.getFatals() ), fatals, result.getFatals().size() );
-        assertEquals( String.valueOf( result.getErrors() ), errors, result.getErrors().size() );
-        assertEquals( String.valueOf( result.getWarnings() ), warnings, result.getWarnings().size() );
+        assertEquals( fatals, result.getFatals().size(), String.valueOf( result.getFatals() ) );
+        assertEquals( errors, result.getErrors().size(), String.valueOf( result.getErrors() ) );
+        assertEquals( warnings, result.getWarnings().size(), String.valueOf( result.getWarnings() ) );
     }
 
+    @Test
     public void testMissingModelVersion()
         throws Exception
     {
@@ -124,6 +131,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'modelVersion' is missing.", result.getErrors().get( 0 ) );
     }
 
+    @Test
     public void testBadModelVersion()
         throws Exception
     {
@@ -135,6 +143,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getFatals().get( 0 ).contains( "modelVersion" ) );
     }
 
+    @Test
     public void testMissingArtifactId()
         throws Exception
     {
@@ -145,6 +154,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'artifactId' is missing.", result.getErrors().get( 0 ) );
     }
 
+    @Test
     public void testMissingGroupId()
         throws Exception
     {
@@ -155,19 +165,22 @@ public class DefaultModelValidatorTest
         assertEquals( "'groupId' is missing.", result.getErrors().get( 0 ) );
     }
 
-    public void testInvalidIds()
+    @Test
+    public void testInvalidCoordinateIds()
         throws Exception
     {
-        SimpleProblemCollector result = validate( "invalid-ids-pom.xml" );
+        SimpleProblemCollector result = validate( "invalid-coordinate-ids-pom.xml" );
 
         assertViolations( result, 0, 2, 0 );
 
-        assertEquals( "'groupId' with value 'o/a/m' does not match a valid id pattern.", result.getErrors().get( 0 ) );
+        assertEquals( "'groupId' with value 'o/a/m' does not match a valid coordinate id pattern.",
+                      result.getErrors().get( 0 ) );
 
-        assertEquals( "'artifactId' with value 'm$-do$' does not match a valid id pattern.",
+        assertEquals( "'artifactId' with value 'm$-do$' does not match a valid coordinate id pattern.",
                       result.getErrors().get( 1 ) );
     }
 
+    @Test
     public void testMissingType()
         throws Exception
     {
@@ -178,6 +191,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'packaging' is missing.", result.getErrors().get( 0 ) );
     }
 
+    @Test
     public void testMissingVersion()
         throws Exception
     {
@@ -188,6 +202,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'version' is missing.", result.getErrors().get( 0 ) );
     }
 
+    @Test
     public void testInvalidAggregatorPackaging()
         throws Exception
     {
@@ -198,6 +213,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "Aggregator projects require 'pom' as packaging." ) );
     }
 
+    @Test
     public void testMissingDependencyArtifactId()
         throws Exception
     {
@@ -208,6 +224,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "'dependencies.dependency.artifactId' for groupId:null:jar is missing" ) );
     }
 
+    @Test
     public void testMissingDependencyGroupId()
         throws Exception
     {
@@ -218,6 +235,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "'dependencies.dependency.groupId' for null:artifactId:jar is missing" ) );
     }
 
+    @Test
     public void testMissingDependencyVersion()
         throws Exception
     {
@@ -228,6 +246,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "'dependencies.dependency.version' for groupId:artifactId:jar is missing" ) );
     }
 
+    @Test
     public void testMissingDependencyManagementArtifactId()
         throws Exception
     {
@@ -238,6 +257,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "'dependencyManagement.dependencies.dependency.artifactId' for groupId:null:jar is missing" ) );
     }
 
+    @Test
     public void testMissingDependencyManagementGroupId()
         throws Exception
     {
@@ -248,6 +268,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "'dependencyManagement.dependencies.dependency.groupId' for null:artifactId:jar is missing" ) );
     }
 
+    @Test
     public void testMissingAll()
         throws Exception
     {
@@ -264,6 +285,7 @@ public class DefaultModelValidatorTest
         // type is inherited from the super pom
     }
 
+    @Test
     public void testMissingPluginArtifactId()
         throws Exception
     {
@@ -274,6 +296,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'build.plugins.plugin.artifactId' is missing.", result.getErrors().get( 0 ) );
     }
 
+    @Test
     public void testEmptyPluginVersion()
         throws Exception
     {
@@ -285,6 +308,7 @@ public class DefaultModelValidatorTest
             + " must be a valid version but is ''.", result.getErrors().get( 0 ) );
     }
 
+    @Test
     public void testMissingRepositoryId()
         throws Exception
     {
@@ -302,6 +326,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'pluginRepositories.pluginRepository.[null].url' is missing.", result.getErrors().get( 3 ) );
     }
 
+    @Test
     public void testMissingResourceDirectory()
         throws Exception
     {
@@ -314,6 +339,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'build.testResources.testResource.directory' is missing.", result.getErrors().get( 1 ) );
     }
 
+    @Test
     public void testBadPluginDependencyScope()
         throws Exception
     {
@@ -328,6 +354,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 2 ).contains( "test:f" ) );
     }
 
+    @Test
     public void testBadDependencyScope()
         throws Exception
     {
@@ -340,6 +367,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getWarnings().get( 1 ).contains( "test:g" ) );
     }
 
+    @Test
     public void testBadDependencyManagementScope()
         throws Exception
     {
@@ -350,6 +378,7 @@ public class DefaultModelValidatorTest
         assertContains( result.getWarnings().get( 0 ), "test:g" );
     }
 
+    @Test
     public void testBadDependencyVersion()
         throws Exception
     {
@@ -363,14 +392,29 @@ public class DefaultModelValidatorTest
                         "'dependencies.dependency.version' for test:c:jar must not contain any of these characters" );
     }
 
+    @Test
     public void testDuplicateModule()
         throws Exception
     {
-        SimpleProblemCollector result = validate( "duplicate-module.xml" );
+        SimpleProblemCollector result = validateRaw( "duplicate-module.xml" );
 
         assertViolations( result, 0, 1, 0 );
 
         assertTrue( result.getErrors().get( 0 ).contains( "child" ) );
+    }
+
+    @Test
+    public void testInvalidProfileId()
+        throws Exception
+    {
+        SimpleProblemCollector result = validateRaw( "invalid-profile-ids.xml" );
+
+        assertViolations( result, 0, 4, 0 );
+
+        assertTrue( result.getErrors().get( 0 ).contains( "+invalid-id" ) );
+        assertTrue( result.getErrors().get( 1 ).contains( "-invalid-id" ) );
+        assertTrue( result.getErrors().get( 2 ).contains( "!invalid-id" ) );
+        assertTrue( result.getErrors().get( 3 ).contains( "?invalid-id" ) );
     }
 
     public void testDuplicateProfileId()
@@ -383,6 +427,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "non-unique-id" ) );
     }
 
+    @Test
     public void testBadPluginVersion()
         throws Exception
     {
@@ -400,6 +445,7 @@ public class DefaultModelValidatorTest
                         "'build.plugins.plugin.version' for test:ifsc must not contain any of these characters" );
     }
 
+    @Test
     public void testDistributionManagementStatus()
         throws Exception
     {
@@ -410,42 +456,36 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "distributionManagement.status" ) );
     }
 
+    @Test
     public void testIncompleteParent()
         throws Exception
     {
         SimpleProblemCollector result = validateRaw( "incomplete-parent.xml" );
 
         assertViolations( result, 3, 0, 0 );
-
         assertTrue( result.getFatals().get( 0 ).contains( "parent.groupId" ) );
         assertTrue( result.getFatals().get( 1 ).contains( "parent.artifactId" ) );
         assertTrue( result.getFatals().get( 2 ).contains( "parent.version" ) );
     }
 
+    @Test
     public void testHardCodedSystemPath()
         throws Exception
     {
         SimpleProblemCollector result = validateRaw( "hard-coded-system-path.xml" );
 
-        assertViolations( result, 0, 0, 1 );
+        assertViolations( result, 0, 0, 3 );
 
         assertContains( result.getWarnings().get( 0 ),
-                        "'dependencies.dependency.systemPath' for test:a:jar should use a variable instead of a hard-coded path" );
-
-        SimpleProblemCollector result_31 =
-            validateRaw( "hard-coded-system-path.xml", ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_1 );
-
-        assertViolations( result_31, 0, 0, 3 );
-
-        assertContains( result_31.getWarnings().get( 0 ),
                         "'dependencies.dependency.scope' for test:a:jar declares usage of deprecated 'system' scope" );
-        assertContains( result_31.getWarnings().get( 1 ),
+        assertContains( result.getWarnings().get( 1 ),
                         "'dependencies.dependency.systemPath' for test:a:jar should use a variable instead of a hard-coded path" );
-        assertContains( result_31.getWarnings().get( 2 ),
+        assertContains( result.getWarnings().get( 2 ),
                         "'dependencies.dependency.scope' for test:b:jar declares usage of deprecated 'system' scope" );
 
     }
 
+    @Test
     public void testEmptyModule()
         throws Exception
     {
@@ -456,19 +496,21 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "'modules.module[0]' has been specified without a path" ) );
     }
 
+    @Test
     public void testDuplicatePlugin()
         throws Exception
     {
         SimpleProblemCollector result = validateRaw( "duplicate-plugin.xml" );
 
-        assertViolations( result, 0, 0, 4 );
+        assertViolations( result, 0, 4, 0 );
 
-        assertTrue( result.getWarnings().get( 0 ).contains( "duplicate declaration of plugin test:duplicate" ) );
-        assertTrue( result.getWarnings().get( 1 ).contains( "duplicate declaration of plugin test:managed-duplicate" ) );
-        assertTrue( result.getWarnings().get( 2 ).contains( "duplicate declaration of plugin profile:duplicate" ) );
-        assertTrue( result.getWarnings().get( 3 ).contains( "duplicate declaration of plugin profile:managed-duplicate" ) );
+        assertTrue( result.getErrors().get( 0 ).contains( "duplicate declaration of plugin test:duplicate" ) );
+        assertTrue( result.getErrors().get( 1 ).contains( "duplicate declaration of plugin test:managed-duplicate" ) );
+        assertTrue( result.getErrors().get( 2 ).contains( "duplicate declaration of plugin profile:duplicate" ) );
+        assertTrue( result.getErrors().get( 3 ).contains( "duplicate declaration of plugin profile:managed-duplicate" ) );
     }
 
+    @Test
     public void testDuplicatePluginExecution()
         throws Exception
     {
@@ -482,20 +524,22 @@ public class DefaultModelValidatorTest
         assertContains( result.getErrors().get( 3 ), "duplicate execution with id b" );
     }
 
+    @Test
     public void testReservedRepositoryId()
         throws Exception
     {
         SimpleProblemCollector result = validate( "reserved-repository-id.xml" );
 
-        assertViolations( result, 0, 0, 4 );
+        assertViolations( result, 0, 4, 0 );
 
-        assertContains( result.getWarnings().get( 0 ), "'repositories.repository.id'" + " must not be 'local'" );
-        assertContains( result.getWarnings().get( 1 ), "'pluginRepositories.pluginRepository.id' must not be 'local'" );
-        assertContains( result.getWarnings().get( 2 ), "'distributionManagement.repository.id' must not be 'local'" );
-        assertContains( result.getWarnings().get( 3 ),
+        assertContains( result.getErrors().get( 0 ), "'repositories.repository.id'" + " must not be 'local'" );
+        assertContains( result.getErrors().get( 1 ), "'pluginRepositories.pluginRepository.id' must not be 'local'" );
+        assertContains( result.getErrors().get( 2 ), "'distributionManagement.repository.id' must not be 'local'" );
+        assertContains( result.getErrors().get( 3 ),
                         "'distributionManagement.snapshotRepository.id' must not be 'local'" );
     }
 
+    @Test
     public void testMissingPluginDependencyGroupId()
         throws Exception
     {
@@ -506,6 +550,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( ":a:" ) );
     }
 
+    @Test
     public void testMissingPluginDependencyArtifactId()
         throws Exception
     {
@@ -516,6 +561,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "test:" ) );
     }
 
+    @Test
     public void testMissingPluginDependencyVersion()
         throws Exception
     {
@@ -526,6 +572,7 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "test:a" ) );
     }
 
+    @Test
     public void testBadPluginDependencyVersion()
         throws Exception
     {
@@ -536,43 +583,47 @@ public class DefaultModelValidatorTest
         assertTrue( result.getErrors().get( 0 ).contains( "test:b" ) );
     }
 
+    @Test
     public void testBadVersion()
         throws Exception
     {
         SimpleProblemCollector result = validate( "bad-version.xml" );
 
-        assertViolations( result, 0, 0, 1 );
+        assertViolations( result, 0, 1, 0 );
 
-        assertContains( result.getWarnings().get( 0 ), "'version' must not contain any of these characters" );
+        assertContains( result.getErrors().get( 0 ), "'version' must not contain any of these characters" );
     }
 
+    @Test
     public void testBadSnapshotVersion()
         throws Exception
     {
         SimpleProblemCollector result = validate( "bad-snapshot-version.xml" );
 
-        assertViolations( result, 0, 0, 1 );
+        assertViolations( result, 0, 1, 0 );
 
-        assertContains( result.getWarnings().get( 0 ), "'version' uses an unsupported snapshot version format" );
+        assertContains( result.getErrors().get( 0 ), "'version' uses an unsupported snapshot version format" );
     }
 
+    @Test
     public void testBadRepositoryId()
         throws Exception
     {
         SimpleProblemCollector result = validate( "bad-repository-id.xml" );
 
-        assertViolations( result, 0, 0, 4 );
+        assertViolations( result, 0, 4, 0 );
 
-        assertContains( result.getWarnings().get( 0 ),
+        assertContains( result.getErrors().get( 0 ),
                         "'repositories.repository.id' must not contain any of these characters" );
-        assertContains( result.getWarnings().get( 1 ),
+        assertContains( result.getErrors().get( 1 ),
                         "'pluginRepositories.pluginRepository.id' must not contain any of these characters" );
-        assertContains( result.getWarnings().get( 2 ),
+        assertContains( result.getErrors().get( 2 ),
                         "'distributionManagement.repository.id' must not contain any of these characters" );
-        assertContains( result.getWarnings().get( 3 ),
+        assertContains( result.getErrors().get( 3 ),
                         "'distributionManagement.snapshotRepository.id' must not contain any of these characters" );
     }
 
+    @Test
     public void testBadDependencyExclusionId()
         throws Exception
     {
@@ -594,6 +645,7 @@ public class DefaultModelValidatorTest
 
     }
 
+    @Test
     public void testMissingDependencyExclusionId()
         throws Exception
     {
@@ -607,6 +659,7 @@ public class DefaultModelValidatorTest
                         "'dependencies.dependency.exclusions.exclusion.artifactId' for gid:aid:jar is missing" );
     }
 
+    @Test
     public void testBadImportScopeType()
         throws Exception
     {
@@ -618,6 +671,7 @@ public class DefaultModelValidatorTest
                         "'dependencyManagement.dependencies.dependency.type' for test:a:jar must be 'pom'" );
     }
 
+    @Test
     public void testBadImportScopeClassifier()
         throws Exception
     {
@@ -629,33 +683,25 @@ public class DefaultModelValidatorTest
                         "'dependencyManagement.dependencies.dependency.classifier' for test:a:pom:cls must be empty" );
     }
 
+    @Test
     public void testSystemPathRefersToProjectBasedir()
         throws Exception
     {
         SimpleProblemCollector result = validateRaw( "basedir-system-path.xml" );
 
-        assertViolations( result, 0, 0, 2 );
+        assertViolations( result, 0, 0, 4 );
 
         assertContains( result.getWarnings().get( 0 ),
-                        "'dependencies.dependency.systemPath' for test:a:jar should not point at files within the project directory" );
-        assertContains( result.getWarnings().get( 1 ),
-                        "'dependencies.dependency.systemPath' for test:b:jar should not point at files within the project directory" );
-
-        SimpleProblemCollector result_31 =
-            validateRaw( "basedir-system-path.xml", ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_1 );
-
-        assertViolations( result_31, 0, 0, 4 );
-
-        assertContains( result_31.getWarnings().get( 0 ),
                         "'dependencies.dependency.scope' for test:a:jar declares usage of deprecated 'system' scope" );
-        assertContains( result_31.getWarnings().get( 1 ),
+        assertContains( result.getWarnings().get( 1 ),
                         "'dependencies.dependency.systemPath' for test:a:jar should not point at files within the project directory" );
-        assertContains( result_31.getWarnings().get( 2 ),
+        assertContains( result.getWarnings().get( 2 ),
                         "'dependencies.dependency.scope' for test:b:jar declares usage of deprecated 'system' scope" );
-        assertContains( result_31.getWarnings().get( 3 ),
+        assertContains( result.getWarnings().get( 3 ),
                         "'dependencies.dependency.systemPath' for test:b:jar should not point at files within the project directory" );
     }
 
+    @Test
     public void testInvalidVersionInPluginManagement()
         throws Exception
     {
@@ -668,6 +714,7 @@ public class DefaultModelValidatorTest
 
     }
 
+    @Test
     public void testInvalidGroupIdInPluginManagement()
         throws Exception
     {
@@ -680,6 +727,7 @@ public class DefaultModelValidatorTest
 
     }
 
+    @Test
     public void testInvalidArtifactIdInPluginManagement()
         throws Exception
     {
@@ -692,6 +740,7 @@ public class DefaultModelValidatorTest
 
     }
 
+    @Test
     public void testInvalidGroupAndArtifactIdInPluginManagement()
         throws Exception
     {
@@ -707,6 +756,7 @@ public class DefaultModelValidatorTest
 
     }
 
+    @Test
     public void testMissingReportPluginVersion()
         throws Exception
     {
@@ -715,6 +765,7 @@ public class DefaultModelValidatorTest
         assertViolations( result, 0, 0, 0 );
     }
 
+    @Test
     public void testDeprecatedDependencyMetaversionsLatestAndRelease()
         throws Exception
     {
@@ -728,6 +779,7 @@ public class DefaultModelValidatorTest
                         "'dependencies.dependency.version' for test:b:jar is either LATEST or RELEASE (both of them are being deprecated)" );
     }
 
+    @Test
     public void testSelfReferencingDependencyInRawModel()
         throws Exception
     {
@@ -740,6 +792,7 @@ public class DefaultModelValidatorTest
 
     }
 
+    @Test
     public void testSelfReferencingDependencyWithClassifierInRawModel() throws Exception
     {
         SimpleProblemCollector result = validateRaw( "raw-model/self-referencing-classifier.xml" );
@@ -747,6 +800,7 @@ public class DefaultModelValidatorTest
         assertViolations( result, 0, 0, 0 );
     }
 
+    @Test
     public void testCiFriendlySha1()
         throws Exception
     {
@@ -754,6 +808,7 @@ public class DefaultModelValidatorTest
         assertViolations( result, 0, 0, 0 );
     }
 
+    @Test
     public void testCiFriendlyRevision()
         throws Exception
     {
@@ -761,6 +816,7 @@ public class DefaultModelValidatorTest
         assertViolations( result, 0, 0, 0 );
     }
 
+    @Test
     public void testCiFriendlyChangeList()
         throws Exception
     {
@@ -768,6 +824,7 @@ public class DefaultModelValidatorTest
         assertViolations( result, 0, 0, 0 );
     }
 
+    @Test
     public void testCiFriendlyAllExpressions()
         throws Exception
     {
@@ -775,6 +832,7 @@ public class DefaultModelValidatorTest
         assertViolations( result, 0, 0, 0 );
     }
 
+    @Test
     public void testCiFriendlyBad()
         throws Exception
     {
@@ -783,6 +841,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'version' contains an expression but should be a constant.", result.getWarnings().get( 0 ) );
     }
 
+    @Test
     public void testCiFriendlyBadSha1Plus()
         throws Exception
     {
@@ -791,6 +850,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'version' contains an expression but should be a constant.", result.getWarnings().get( 0 ) );
     }
 
+    @Test
     public void testCiFriendlyBadSha1Plus2()
         throws Exception
     {
@@ -799,6 +859,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'version' contains an expression but should be a constant.", result.getWarnings().get( 0 ) );
     }
 
+    @Test
     public void testParentVersionLATEST()
         throws Exception
     {
@@ -807,6 +868,7 @@ public class DefaultModelValidatorTest
         assertEquals( "'parent.version' is either LATEST or RELEASE (both of them are being deprecated)", result.getWarnings().get( 0 ) );
     }
 
+    @Test
     public void testParentVersionRELEASE()
         throws Exception
     {

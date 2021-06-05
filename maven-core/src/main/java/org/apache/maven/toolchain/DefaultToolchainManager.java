@@ -25,27 +25,30 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.toolchain.model.ToolchainModel;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.codehaus.plexus.logging.Logger;
 
 /**
  * @author mkleint
  */
-@Component( role = ToolchainManager.class )
+@Named
+@Singleton
 public class DefaultToolchainManager
     implements ToolchainManager
 {
-    @Requirement
+    @Inject
     Logger logger;
 
-    @Requirement( role = ToolchainFactory.class )
+    @Inject
     Map<String, ToolchainFactory> factories;
-    
+
     @Override
     public Toolchain getToolchainFromBuildContext( String type, MavenSession session )
     {
@@ -56,7 +59,7 @@ public class DefaultToolchainManager
         if ( model != null )
         {
             List<Toolchain> toolchains = selectToolchains( Collections.singletonList( model ), type, null );
-            
+
             if ( !toolchains.isEmpty() )
             {
                 return toolchains.get( 0 );
@@ -109,7 +112,7 @@ public class DefaultToolchainManager
         }
         return toolchains;
     }
-    
+
     Map<String, Object> retrieveContext( MavenSession session )
     {
         Map<String, Object> context = null;
@@ -129,7 +132,7 @@ public class DefaultToolchainManager
             }
         }
 
-        return ( context != null ) ? context : new HashMap<String, Object>();
+        return ( context != null ) ? context : new HashMap<>();
     }
 
     public static final String getStorageKey( String type )

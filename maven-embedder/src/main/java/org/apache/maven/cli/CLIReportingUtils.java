@@ -55,7 +55,7 @@ public final class CLIReportingUtils
 
     public static String showVersion()
     {
-        final String ls = System.getProperty( "line.separator" );
+        final String ls = System.lineSeparator();
         Properties properties = getBuildProperties();
         StringBuilder version = new StringBuilder( 256 );
         version.append( buffer().strong( createMavenVersionString( properties ) ) ).append( ls );
@@ -96,7 +96,7 @@ public final class CLIReportingUtils
             msg += ( rev != null ? rev : "" );
             if ( StringUtils.isNotBlank( timestamp ) )
             {
-                String ts = formatTimestamp( Long.valueOf( timestamp ) );
+                String ts = formatTimestamp( Long.parseLong( timestamp ) );
                 msg += ( rev != null ? "; " : "" ) + ts;
             }
             msg += ")";

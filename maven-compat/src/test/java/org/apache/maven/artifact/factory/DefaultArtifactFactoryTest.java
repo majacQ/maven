@@ -19,18 +19,25 @@ package org.apache.maven.artifact.factory;
  * under the License.
  */
 
+import javax.inject.Inject;
+
+import org.codehaus.plexus.testing.PlexusTest;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.versioning.VersionRange;
-import org.codehaus.plexus.PlexusTestCase;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@PlexusTest
 public class DefaultArtifactFactoryTest
-    extends PlexusTestCase
 {
 
-    public void testPropagationOfSystemScopeRegardlessOfInheritedScope() throws Exception
-    {
-        ArtifactFactory factory = (ArtifactFactory) lookup( ArtifactFactory.ROLE );
+    @Inject
+    ArtifactFactory factory;
 
+    @Test
+    public void testPropagationOfSystemScopeRegardlessOfInheritedScope()
+    {
         Artifact artifact = factory.createDependencyArtifact( "test-grp", "test-artifact", VersionRange.createFromVersion("1.0"), "type", null, "system", "provided" );
         Artifact artifact2 = factory.createDependencyArtifact( "test-grp", "test-artifact-2", VersionRange.createFromVersion("1.0"), "type", null, "system", "test" );
         Artifact artifact3 = factory.createDependencyArtifact( "test-grp", "test-artifact-3", VersionRange.createFromVersion("1.0"), "type", null, "system", "runtime" );

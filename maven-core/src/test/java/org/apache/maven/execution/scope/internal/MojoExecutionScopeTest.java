@@ -16,18 +16,19 @@ package org.apache.maven.execution.scope.internal;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.inject.Key;
 import org.apache.maven.execution.MojoExecutionEvent;
 import org.apache.maven.execution.scope.WeakMojoExecutionListener;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
-
-import com.google.inject.Key;
-import com.google.inject.Provider;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MojoExecutionScopeTest
-    extends TestCase
 {
+    @Test
     public void testNestedEnter()
         throws Exception
     {
@@ -49,16 +50,10 @@ public class MojoExecutionScopeTest
 
         scope.exit();
 
-        try
-        {
-            scope.exit();
-            fail();
-        }
-        catch ( IllegalStateException expected )
-        {
-        }
+        assertThrows( IllegalStateException.class, () -> scope.exit() );
     }
 
+    @Test
     public void testMultiKeyInstance()
         throws Exception
     {
@@ -90,23 +85,8 @@ public class MojoExecutionScopeTest
                 afterExecutionFailure.incrementAndGet();
             }
         };
-        assertSame( instance, scope.scope( Key.get( Object.class ), new Provider<Object>()
-        {
-            @Override
-            public Object get()
-            {
-                return instance;
-            }
-        } ).get() );
-        assertSame( instance,
-                    scope.scope( Key.get( WeakMojoExecutionListener.class ), new Provider<WeakMojoExecutionListener>()
-                    {
-                        @Override
-                        public WeakMojoExecutionListener get()
-                        {
-                            return instance;
-                        }
-                    } ).get() );
+        assertSame( instance, scope.scope( Key.get( Object.class ), () -> instance ).get() );
+        assertSame( instance, scope.scope( Key.get( WeakMojoExecutionListener.class ), () -> instance ).get() );
 
         final MojoExecutionEvent event = new MojoExecutionEvent( null, null, null, null );
         scope.beforeMojoExecution( event );
