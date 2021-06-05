@@ -15,60 +15,32 @@ package org.apache.maven.lifecycle;
  * the License.
  */
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.arrayWithSize;
-import static org.hamcrest.Matchers.hasSize;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.codehaus.plexus.ContainerConfiguration;
-import org.codehaus.plexus.DefaultPlexusContainer;
-import org.codehaus.plexus.PlexusConstants;
-import org.codehaus.plexus.PlexusTestCase;
-
 import javax.inject.Inject;
-import java.util.Collections;
-import java.util.List;
+
+import org.codehaus.plexus.testing.PlexusTest;
+import org.junit.jupiter.api.Test;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 
 /**
  * @author Kristian Rosenvold
  */
-
+@PlexusTest
 public class DefaultLifecyclesTest
-    extends PlexusTestCase
 {
     @Inject
     private DefaultLifecycles defaultLifeCycles;
 
-    @Override
-    protected void customizeContainerConfiguration( ContainerConfiguration configuration )
-    {
-        super.customizeContainerConfiguration( configuration );
-        configuration.setAutoWiring( true );
-        configuration.setClassPathScanning( PlexusConstants.SCANNING_INDEX );
-    }
-
-    @Override
-    protected void setUp() throws Exception
-    {
-        super.setUp();
-        getContainer();
-    }
-
-    @Override
-    protected synchronized void setupContainer()
-    {
-        super.setupContainer();
-
-        ( (DefaultPlexusContainer) getContainer() ).addPlexusInjector( Collections.emptyList(),
-                binder -> binder.requestInjection( this ) );
-    }
-
+    @Test
     public void testDefaultLifecycles()
     {
         final List<Lifecycle> lifecycles = defaultLifeCycles.getLifeCycles();
@@ -76,6 +48,7 @@ public class DefaultLifecyclesTest
         assertThat( DefaultLifecycles.STANDARD_LIFECYCLES,  arrayWithSize( 4 ) );
     }
 
+    @Test
     public void testDefaultLifecycle()
     {
         final Lifecycle lifecycle = getLifeCycleById( "default" );
@@ -83,6 +56,7 @@ public class DefaultLifecyclesTest
         assertThat( lifecycle.getPhases(), hasSize( 23 ) );
     }
 
+    @Test
     public void testCleanLifecycle()
     {
         final Lifecycle lifecycle = getLifeCycleById( "clean" );
@@ -90,6 +64,7 @@ public class DefaultLifecyclesTest
         assertThat( lifecycle.getPhases(), hasSize( 3 ) );
     }
 
+    @Test
     public void testSiteLifecycle()
     {
         final Lifecycle lifecycle = getLifeCycleById( "site" );
@@ -97,6 +72,7 @@ public class DefaultLifecyclesTest
         assertThat( lifecycle.getPhases(), hasSize( 4 ) );
     }
 
+    @Test
     public void testWrapperLifecycle()
     {
         final Lifecycle lifecycle = getLifeCycleById( "wrapper" );
@@ -104,6 +80,7 @@ public class DefaultLifecyclesTest
         assertThat( lifecycle.getPhases(), hasSize( 1 ) );
     }
 
+    @Test
     public void testCustomLifecycle()
     {
         List<Lifecycle> myLifecycles = new ArrayList<>();

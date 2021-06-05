@@ -23,8 +23,11 @@ import java.io.File;
 
 import org.apache.maven.artifact.AbstractArtifactComponentTestCase;
 import org.apache.maven.artifact.Artifact;
+import org.junit.jupiter.api.Test;
 
 import javax.inject.Inject;
+
+import static org.codehaus.plexus.testing.PlexusExtension.getBasedir;
 
 /**
  * @author <a href="mailto:jason@maven.org">Jason van Zyl</a>
@@ -40,6 +43,7 @@ public class ArtifactInstallerTest
         return "installer";
     }
 
+    @Test
     public void testArtifactInstallation()
         throws Exception
     {

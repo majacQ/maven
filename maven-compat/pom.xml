@@ -101,6 +101,11 @@ under the License.
 
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-testing</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-cipher</artifactId>
       <scope>test</scope>
     </dependency>

@@ -71,6 +71,7 @@ import org.apache.maven.model.building.StringModelSource;
 import org.apache.maven.model.building.TransformerContext;
 import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.repository.internal.ArtifactDescriptorUtils;
+import org.apache.maven.repository.internal.DefaultModelCache;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.util.Os;
 import org.codehaus.plexus.util.StringUtils;
@@ -91,9 +92,6 @@ import org.eclipse.aether.resolution.ArtifactResult;
 public class DefaultProjectBuilder
     implements ProjectBuilder
 {
-
-    public static final String DISABLE_GLOBAL_MODEL_CACHE_SYSTEM_PROPERTY =
-            "maven.defaultProjectBuilder.disableGlobalModelCache";
 
     @Inject
     private Logger logger;
@@ -119,8 +117,6 @@ public class DefaultProjectBuilder
     @Inject
     private ProjectDependenciesResolver dependencyResolver;
 
-    private final ReactorModelCache modelCache = new ReactorModelCache();
-
     // ----------------------------------------------------------------------
     // MavenProjectBuilder Implementation
     // ----------------------------------------------------------------------
@@ -130,12 +126,7 @@ public class DefaultProjectBuilder
         throws ProjectBuildingException
     {
         return build( pomFile, new FileModelSource( pomFile ),
-                new InternalConfig( request, null, useGlobalModelCache() ? getModelCache() : null, null ) );
-    }
-
-    private boolean useGlobalModelCache()
-    {
-        return !Boolean.getBoolean( DISABLE_GLOBAL_MODEL_CACHE_SYSTEM_PROPERTY );
+                new InternalConfig( request, null, null ) );
     }
 
     @Override
@@ -143,7 +134,7 @@ public class DefaultProjectBuilder
         throws ProjectBuildingException
     {
         return build( null, modelSource,
-                 new InternalConfig( request, null, useGlobalModelCache() ? getModelCache() : null, null ) );
+                 new InternalConfig( request, null, null ) );
     }
 
     private ProjectBuildingResult build( File pomFile, ModelSource modelSource, InternalConfig config )
@@ -288,7 +279,11 @@ public class DefaultProjectBuilder
         request.setUserProperties( configuration.getUserProperties() );
         request.setBuildStartTime( configuration.getBuildStartTime() );
         request.setModelResolver( resolver );
-        request.setModelCache( config.modelCache );
+        // this is a hint that we want to build 1 file, so don't cache. See MNG-7063
+        if ( config.modelPool != null )
+        {
+            request.setModelCache( DefaultModelCache.newInstance( config.session ) );
+        }
         request.setTransformerContextBuilder( config.transformerContextBuilder );
 
         return request;
@@ -309,7 +304,7 @@ public class DefaultProjectBuilder
         pomArtifact = ArtifactDescriptorUtils.toPomArtifact( pomArtifact );
 
         InternalConfig config =
-            new InternalConfig( request, null, useGlobalModelCache() ? getModelCache() : null, null );
+            new InternalConfig( request, null, null );
 
         boolean localProject;
 
@@ -382,8 +377,7 @@ public class DefaultProjectBuilder
         final ReactorModelPool modelPool = poolBuilder.build();
 
         InternalConfig config =
-            new InternalConfig( request, modelPool, useGlobalModelCache() ? getModelCache() : new ReactorModelCache(),
-                        modelBuilder.newTransformerContextBuilder() );
+            new InternalConfig( request, modelPool, modelBuilder.newTransformerContextBuilder() );
 
         Map<File, MavenProject> projectIndex = new HashMap<>( 256 );
 
@@ -705,16 +699,6 @@ public class DefaultProjectBuilder
             project.setInjectedProfileIds( modelId, getProfileIds( result.getActivePomProfiles( modelId ) ) );
         }
 
-        String modelId = findProfilesXml( result, profilesXmls );
-        if ( modelId != null )
-        {
-            ModelProblem problem =
-                new DefaultModelProblem( "Detected profiles.xml alongside " + modelId
-                    + ", this file is no longer supported and was ignored" + ", please use the settings.xml instead",
-                                         ModelProblem.Severity.WARNING, ModelProblem.Version.V30, model, -1, -1, null );
-            result.getProblems().add( problem );
-        }
-
         //
         // All the parts that were taken out of MavenProject for Maven 4.0.0
         //
@@ -1019,33 +1003,6 @@ public class DefaultProjectBuilder
         return version;
     }
 
-    private String findProfilesXml( ModelBuildingResult result, Map<File, Boolean> profilesXmls )
-    {
-        for ( String modelId : result.getModelIds() )
-        {
-            Model model = result.getRawModel( modelId );
-
-            File basedir = model.getProjectDirectory();
-            if ( basedir == null )
-            {
-                break;
-            }
-
-            Boolean profilesXml = profilesXmls.get( basedir );
-            if ( profilesXml == null )
-            {
-                profilesXml = new File( basedir, "profiles.xml" ).exists();
-                profilesXmls.put( basedir, profilesXml );
-            }
-            if ( profilesXml )
-            {
-                return modelId;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * InternalConfig
      */
@@ -1060,16 +1017,13 @@ public class DefaultProjectBuilder
 
         private final ReactorModelPool modelPool;
 
-        private final ReactorModelCache modelCache;
-
         private final TransformerContextBuilder transformerContextBuilder;
 
-        InternalConfig( ProjectBuildingRequest request, ReactorModelPool modelPool, ReactorModelCache modelCache,
+        InternalConfig( ProjectBuildingRequest request, ReactorModelPool modelPool,
                         TransformerContextBuilder transformerContextBuilder )
         {
             this.request = request;
             this.modelPool = modelPool;
-            this.modelCache = modelCache;
             this.transformerContextBuilder = transformerContextBuilder;
 
             session =
@@ -1079,11 +1033,6 @@ public class DefaultProjectBuilder
 
         }
 
-    }
-
-    private ReactorModelCache getModelCache()
-    {
-        return this.modelCache;
     }
 
 }

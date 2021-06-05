@@ -24,6 +24,11 @@ import java.util.Collections;
 import org.apache.maven.artifact.AbstractArtifactComponentTestCase;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.DefaultArtifactResolver.DaemonThreadCreator;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import javax.inject.Inject;
 
@@ -35,20 +40,13 @@ public class DefaultArtifactResolverTest
 
     private Artifact projectArtifact;
 
+    @BeforeEach
     @Override
-    protected void setUp()
+    public void setUp()
         throws Exception
     {
         super.setUp();
         projectArtifact = createLocalArtifact( "project", "3.0" );
-    }
-
-    @Override
-    protected void tearDown()
-        throws Exception
-    {
-        projectArtifact = null;
-        super.tearDown();
     }
 
     @Override
@@ -57,6 +55,7 @@ public class DefaultArtifactResolverTest
         return "resolver";
     }
 
+    @Test
     public void testMNG4738()
         throws Exception
     {
@@ -94,17 +93,18 @@ public class DefaultArtifactResolverTest
             {
                 String name = active.getName();
                 boolean daemon = active.isDaemon();
-                assertTrue( name + " is no daemon Thread.", daemon );
+                assertTrue( daemon, name + " is no daemon Thread." );
             }
 
         }
 
-        assertTrue( "Could not find ThreadGroup: " + DaemonThreadCreator.THREADGROUP_NAME, seen );
+        assertTrue( seen, "Could not find ThreadGroup: " + DaemonThreadCreator.THREADGROUP_NAME );
     }
 
+    @Test
     public void testLookup()
         throws Exception
     {
-        ArtifactResolver resolver = lookup( ArtifactResolver.class, "default" );
+        ArtifactResolver resolver = getContainer().lookup( ArtifactResolver.class, "default" );
     }
 }

@@ -29,12 +29,17 @@ import java.util.Set;
 
 import org.apache.maven.artifact.AbstractArtifactComponentTestCase;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.metadata.ArtifactMetadataRetrievalException;
 import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.metadata.ResolutionGroup;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.repository.legacy.metadata.MetadataResolutionRequest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import javax.inject.Inject;
 
@@ -55,8 +60,9 @@ public class ArtifactResolverTest
 
     private Artifact projectArtifact;
 
+    @BeforeEach
     @Override
-    protected void setUp()
+    public void setUp()
         throws Exception
     {
         super.setUp();
@@ -65,19 +71,12 @@ public class ArtifactResolverTest
     }
 
     @Override
-    protected void tearDown()
-        throws Exception
-    {
-        projectArtifact = null;
-        super.tearDown();
-    }
-
-    @Override
     protected String component()
     {
         return "resolver";
     }
 
+    @Test
     public void testResolutionOfASingleArtifactWhereTheArtifactIsPresentInTheLocalRepository()
         throws Exception
     {
@@ -88,6 +87,7 @@ public class ArtifactResolverTest
         assertLocalArtifactPresent( a );
     }
 
+    @Test
     public void testResolutionOfASingleArtifactWhereTheArtifactIsNotPresentLocallyAndMustBeRetrievedFromTheRemoteRepository()
         throws Exception
     {
@@ -105,6 +105,7 @@ public class ArtifactResolverTest
         return super.createArtifact( groupId, artifactId, version, type );
     }
 
+    @Test
     public void testTransitiveResolutionWhereAllArtifactsArePresentInTheLocalRepository()
         throws Exception
     {
@@ -127,6 +128,7 @@ public class ArtifactResolverTest
         assertLocalArtifactPresent( h );
     }
 
+    @Test
     public void testTransitiveResolutionWhereAllArtifactsAreNotPresentInTheLocalRepositoryAndMustBeRetrievedFromTheRemoteRepository()
         throws Exception
     {
@@ -151,22 +153,19 @@ public class ArtifactResolverTest
         assertLocalArtifactPresent( j );
     }
 
+    @Test
     public void testResolutionFailureWhenArtifactNotPresentInRemoteRepository()
         throws Exception
     {
         Artifact k = createArtifact( "k", "1.0" );
 
-        try
-        {
-            artifactResolver.resolve( k, remoteRepositories(), localRepository() );
-            fail( "Resolution succeeded when it should have failed" );
-        }
-        catch ( ArtifactNotFoundException expected )
-        {
-            assertTrue( true );
-        }
+        assertThrows(
+                ArtifactNotFoundException.class,
+                () -> artifactResolver.resolve( k, remoteRepositories(), localRepository() ),
+                "Resolution succeeded when it should have failed" );
     }
 
+    @Test
     public void testResolutionOfAnArtifactWhereOneRemoteRepositoryIsBadButOneIsGood()
         throws Exception
     {
@@ -182,6 +181,7 @@ public class ArtifactResolverTest
         assertLocalArtifactPresent( l );
     }
 
+    @Test
     public void testTransitiveResolutionOrder()
         throws Exception
     {
@@ -237,8 +237,8 @@ public class ArtifactResolverTest
         printErrors( result );
 
         Iterator<Artifact> i = result.getArtifacts().iterator();
-        assertEquals( "n should be first", n, i.next() );
-        assertEquals( "m should be second", m, i.next() );
+        assertEquals( n, i.next(), "n should be first" );
+        assertEquals( m, i.next(), "m should be second" );
 
         // inverse order
         set = new LinkedHashSet<>();
@@ -251,8 +251,8 @@ public class ArtifactResolverTest
         printErrors( result );
 
         i = result.getArtifacts().iterator();
-        assertEquals( "m should be first", m, i.next() );
-        assertEquals( "n should be second", n, i.next() );
+        assertEquals( m, i.next(), "m should be first" );
+        assertEquals( n, i.next(), "n should be second" );
     }
 
     private void printErrors( ArtifactResolutionResult result )
