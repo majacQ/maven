@@ -25,7 +25,11 @@ under the License.
   <parent>
     <groupId>org.apache.maven</groupId>
     <artifactId>maven</artifactId>
+  <<<<<<< maven-3.6.x
+    <version>3.6.4-SNAPSHOT</version>
+  =======
     <version>4.0.0-alpha-1-SNAPSHOT</version>
+  >>>>>>> master
   </parent>
 
   <artifactId>maven-core</artifactId>
@@ -62,15 +66,15 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
-      <artifactId>maven-xml</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
       <artifactId>maven-plugin-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-model-builder</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-model-transform</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -110,6 +114,14 @@ under the License.
       <classifier>no_aop</classifier>
     </dependency>
     <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>failureaccess</artifactId>
+    </dependency>
+    <dependency>
       <groupId>javax.inject</groupId>
       <artifactId>javax.inject</artifactId>
     </dependency>
@@ -132,6 +144,11 @@ under the License.
       <artifactId>commons-lang3</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>commons-jxpath</groupId>
       <artifactId>commons-jxpath</artifactId>
       <scope>test</scope>
@@ -149,6 +166,16 @@ under the License.
     <dependency>
       <groupId>org.xmlunit</groupId>
       <artifactId>xmlunit-assertj</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-testing</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

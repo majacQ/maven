@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -58,9 +57,9 @@ import org.codehaus.plexus.util.StringUtils;
 public class DefaultMavenExecutionRequestPopulator
     implements MavenExecutionRequestPopulator
 {
-            
+
     private final MavenRepositorySystem repositorySystem;
-    
+
     @Inject
     public DefaultMavenExecutionRequestPopulator( MavenRepositorySystem repositorySystem )
     {
@@ -90,7 +89,7 @@ public class DefaultMavenExecutionRequestPopulator
         }
         return request;
     }
-    
+
     @Override
     public MavenExecutionRequest populateDefaults( MavenExecutionRequest request )
         throws MavenExecutionRequestPopulationException
@@ -101,57 +100,17 @@ public class DefaultMavenExecutionRequestPopulator
 
         populateDefaultPluginGroups( request );
 
-        injectDefaultRepositories( request );
-
-        injectDefaultPluginRepositories( request );
-
         return request;
     }
-    
+
     //
     //
     //
-    
+
     private void populateDefaultPluginGroups( MavenExecutionRequest request )
     {
         request.addPluginGroup( "org.apache.maven.plugins" );
         request.addPluginGroup( "org.codehaus.mojo" );
-    }
-
-    private void injectDefaultRepositories( MavenExecutionRequest request )
-        throws MavenExecutionRequestPopulationException
-    {
-        Set<String> definedRepositories = repositorySystem.getRepoIds( request.getRemoteRepositories() );
-
-        if ( !definedRepositories.contains( RepositorySystem.DEFAULT_REMOTE_REPO_ID ) )
-        {
-            try
-            {
-                request.addRemoteRepository( repositorySystem.createDefaultRemoteRepository( request ) );
-            }
-            catch ( Exception e )
-            {
-                throw new MavenExecutionRequestPopulationException( "Cannot create default remote repository.", e );
-            }
-        }
-    }
-
-    private void injectDefaultPluginRepositories( MavenExecutionRequest request )
-        throws MavenExecutionRequestPopulationException
-    {
-        Set<String> definedRepositories = repositorySystem.getRepoIds( request.getPluginArtifactRepositories() );
-
-        if ( !definedRepositories.contains( RepositorySystem.DEFAULT_REMOTE_REPO_ID ) )
-        {
-            try
-            {
-                request.addPluginArtifactRepository( repositorySystem.createDefaultRemoteRepository( request ) );
-            }
-            catch ( Exception e )
-            {
-                throw new MavenExecutionRequestPopulationException( "Cannot create default remote repository.", e );
-            }
-        }
     }
 
     private void localRepository( MavenExecutionRequest request )
@@ -211,10 +170,10 @@ public class DefaultMavenExecutionRequestPopulator
         {
             request.setBaseDirectory( request.getPom().getAbsoluteFile().getParentFile() );
         }
-    }   
-    
+    }
+
     /*if_not[MAVEN4]*/
-    
+
     @Override
     @Deprecated
     public MavenExecutionRequest populateFromSettings( MavenExecutionRequest request, Settings settings )
@@ -316,8 +275,8 @@ public class DefaultMavenExecutionRequestPopulator
         }
 
         return request;
-    }    
-    
+    }
+
     /*end[MAVEN4]*/
 
 }

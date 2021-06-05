@@ -58,8 +58,8 @@ node(jenkinsEnv.nodeSelection(osNode)) {
                 invokerPublisher(disabled: true),
                 pipelineGraphPublisher(disabled: false)
             ], publisherStrategy: 'EXPLICIT') {
-			    // For now: maven-wrapper contains 2 poms sharing the same outputDirectory, so separate clean
-			    sh "mvn clean"
+                // For now: maven-wrapper contains 2 poms sharing the same outputDirectory, so separate clean
+                sh "mvn clean"
                 sh "mvn ${MAVEN_GOAL} -B -U -e -fae -V -Dmaven.test.failure.ignore=true -P versionlessMavenDist"
             }
             dir ('apache-maven/target') {
@@ -70,7 +70,7 @@ node(jenkinsEnv.nodeSelection(osNode)) {
             }
         }
 
-        tests = resolveScm source: [$class: 'GitSCMSource', credentialsId: '', id: '_', remote: 'https://gitbox.apache.org/repos/asf/maven-integration-testing.git', traits: [[$class: 'jenkins.plugins.git.traits.BranchDiscoveryTrait'], [$class: 'GitToolSCMSourceTrait', gitTool: 'Default']]], targets: [BRANCH_NAME, 'master']
+        tests = resolveScm source: [$class: 'GitSCMSource', credentialsId: '', id: '_', remote: 'https://gitbox.apache.org/repos/asf/maven-integration-testing.git', traits: [[$class: 'jenkins.plugins.git.traits.BranchDiscoveryTrait'], [$class: 'GitToolSCMSourceTrait', gitTool: 'Default']]], targets: [BRANCH_NAME, 'MNG-5001']
     }
 }
 

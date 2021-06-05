@@ -31,16 +31,16 @@ import javax.inject.Singleton;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerConfigurationException;
 
-import org.apache.maven.xml.sax.filter.AbstractSAXFilter;
-import org.apache.maven.xml.sax.filter.BuildPomXMLFilterFactory;
-import org.apache.maven.xml.sax.filter.BuildPomXMLFilterListener;
+import org.apache.maven.model.transform.BuildToRawPomXMLFilterFactory;
+import org.apache.maven.model.transform.BuildToRawPomXMLFilterListener;
+import org.apache.maven.model.transform.sax.AbstractSAXFilter;
 import org.eclipse.sisu.Nullable;
 import org.xml.sax.SAXException;
 import org.xml.sax.ext.LexicalHandler;
 
 /**
  * ModelSourceTransformer for the build pom
- * 
+ *
  * @author Robert Scholte
  * @since 4.0.0
  */
@@ -50,19 +50,19 @@ class BuildModelSourceTransformer extends AbstractModelSourceTransformer
 {
     @Inject
     @Nullable
-    private BuildPomXMLFilterListener xmlFilterListener;
-    
+    private BuildToRawPomXMLFilterListener xmlFilterListener;
+
     protected AbstractSAXFilter getSAXFilter( Path pomFile,
                                               TransformerContext context,
                                               Consumer<LexicalHandler> lexicalHandlerConsumer )
         throws TransformerConfigurationException, SAXException, ParserConfigurationException
     {
-        BuildPomXMLFilterFactory buildPomXMLFilterFactory =
-            new DefaultBuildPomXMLFilterFactory( context, lexicalHandlerConsumer );
+        BuildToRawPomXMLFilterFactory buildPomXMLFilterFactory =
+            new DefaultBuildPomXMLFilterFactory( context, lexicalHandlerConsumer, false );
 
         return buildPomXMLFilterFactory.get( pomFile );
     }
-    
+
     @Override
     protected OutputStream filterOutputStream( OutputStream outputStream, Path pomFile )
     {
@@ -77,7 +77,7 @@ class BuildModelSourceTransformer extends AbstractModelSourceTransformer
                 {
                     super.write( b, off, len );
                     xmlFilterListener.write( pomFile, b, off, len );
-                }  
+                }
             };
         }
         else

@@ -24,7 +24,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+  <<<<<<< MNG-5563
 import java.util.Map;
+  =======
+import java.util.Optional;
+  >>>>>>> master
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -37,6 +41,7 @@ import org.apache.maven.execution.BuildFailure;
 import org.apache.maven.execution.ExecutionEvent;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.feature.Features;
 import org.apache.maven.lifecycle.LifecycleExecutionException;
 import org.apache.maven.lifecycle.LifecycleNotFoundException;
 import org.apache.maven.lifecycle.LifecyclePhaseNotFoundException;
@@ -89,7 +94,6 @@ public class BuilderCommon
     @Inject
     private Logger logger;
 
-
     public BuilderCommon()
     {
     }
@@ -114,6 +118,7 @@ public class BuilderCommon
 
         lifecycleDebugLogger.debugProjectPlan( project, executionPlan );
 
+  <<<<<<< MNG-5563
         findNonThreadSafePlugins( project, executionPlan, session );
 
         findUnversionedPlugins( project, executionPlan );
@@ -126,6 +131,27 @@ public class BuilderCommon
     private void findNonThreadSafePlugins( MavenProject project, MavenExecutionPlan executionPlan,
                                                MavenSession session )
     {
+  =======
+        // With Maven 4's build/consumer the POM will always rewrite during distribution.
+        // The maven-gpg-plugin uses the original POM, causing an invalid signature.
+        // Fail as long as there's no solution available yet
+        if ( Features.buildConsumer().isActive() )
+        {
+            Optional<MojoExecution> gpgMojo = executionPlan.getMojoExecutions().stream()
+                            .filter( m -> "maven-gpg-plugin".equals( m.getArtifactId() ) 
+                                       && "org.apache.maven.plugins".equals( m.getGroupId() ) )
+                            .findAny();
+
+            if ( gpgMojo.isPresent() )
+            {
+                throw new LifecycleExecutionException( "The maven-gpg-plugin is not supported by Maven 4."
+                    + " Verify if there is a compatible signing solution,"
+                    + " add -D" + Features.buildConsumer().propertyName() + "=false"
+                    + " or use Maven 3." );
+            }
+        }
+
+  >>>>>>> master
         if ( session.getRequest().getDegreeOfConcurrency() > 1 )
         {
             final Set<Plugin> unsafePlugins = executionPlan.getNonThreadSafePlugins();
@@ -161,21 +187,25 @@ public class BuilderCommon
                 logger.warn( "*****************************************************************" );
             }
         }
+  <<<<<<< MNG-5563
     }
 
     private void findUnversionedPlugins( MavenProject project, MavenExecutionPlan executionPlan )
     {
+  =======
+
+  >>>>>>> master
         final String defaulModelId = DefaultLifecyclePluginAnalyzer.DEFAULTLIFECYCLEBINDINGS_MODELID;
-        
+
         List<String> unversionedPlugins = executionPlan.getMojoExecutions().stream()
                          .map( MojoExecution::getPlugin )
                          .filter( p -> p.getLocation( "version" ) != null ) // versionless cli goal (?)
                          .filter( p -> p.getLocation( "version" ).getSource() != null ) // versionless in pom (?)
                          .filter( p -> defaulModelId.equals( p.getLocation( "version" ).getSource().getModelId() ) )
                          .distinct()
-                         .map( Plugin::getArtifactId ) // managed by us, groupId is always o.a.m.plugins 
+                         .map( Plugin::getArtifactId ) // managed by us, groupId is always o.a.m.plugins
                          .collect( Collectors.toList() );
-        
+
         if ( !unversionedPlugins.isEmpty() )
         {
             logger.warn( "Version not locked for default bindings plugins " + unversionedPlugins

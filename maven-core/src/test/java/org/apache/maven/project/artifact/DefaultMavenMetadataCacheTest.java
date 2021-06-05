@@ -19,55 +19,77 @@ package org.apache.maven.project.artifact;
  * under the License.
  */
 
+import java.io.File;
+
 import java.util.Arrays;
 import java.util.Collections;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.MavenArtifactRepository;
+import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.filter.ExcludesArtifactFilter;
 import org.apache.maven.project.artifact.DefaultMavenMetadataCache.CacheKey;
 import org.apache.maven.repository.DelegatingLocalArtifactRepository;
 import org.apache.maven.repository.RepositorySystem;
 import org.apache.maven.repository.TestRepositorySystem;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 /**
  * @author Igor Fedorenko
  */
 public class DefaultMavenMetadataCacheTest
-    extends TestCase
 {
     private RepositorySystem repositorySystem;
 
-    protected void setUp()
+    @BeforeEach
+    public void setUp()
         throws Exception
     {
-        super.setUp();
         repositorySystem = new TestRepositorySystem( null, null );
     }
 
-    @Override
-    protected void tearDown()
+    @AfterEach
+    public void tearDown()
         throws Exception
     {
         repositorySystem = null;
-        super.tearDown();
     }
 
+    @Test
     public void testCacheKey()
         throws Exception
     {
         Artifact a1 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr1 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr1 = repositorySystem.createDefaultRemoteRepository();
+        ArtifactRepository lr1 =
+            new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr1 =
+            new MavenArtifactRepository( "test",
+                                         "file://" + new File( System.getProperty( "basedir", "" ),
+                                                               "src/test/remote-repo" ).toURI().
+                                         getPath(),
+                                         new DefaultRepositoryLayout(),
+                                         new ArtifactRepositoryPolicy(),
+                                         new ArtifactRepositoryPolicy() );
         a1.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
 
         Artifact a2 = repositorySystem.createArtifact( "testGroup", "testArtifact", "1.2.3", "jar" );
-        @SuppressWarnings( "deprecation" )
-        ArtifactRepository lr2 = new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
-        ArtifactRepository rr2 = repositorySystem.createDefaultRemoteRepository();
+        ArtifactRepository lr2 =
+        new DelegatingLocalArtifactRepository( repositorySystem.createDefaultLocalRepository() );
+        ArtifactRepository rr2 =
+        new MavenArtifactRepository( "test",
+                                     "file://" + new File( System.getProperty( "basedir", "" ),
+                                                           "src/test/remote-repo" ).toURI().
+                                     getPath(),
+                                     new DefaultRepositoryLayout(),
+                                     new ArtifactRepositoryPolicy(),
+                                     new ArtifactRepositoryPolicy() );
         a2.setDependencyFilter( new ExcludesArtifactFilter( Arrays.asList( "foo" ) ) );
 
         // sanity checks

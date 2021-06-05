@@ -27,11 +27,9 @@ import org.apache.maven.execution.scope.internal.MojoExecutionScopeModule;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.monitor.logging.DefaultLog;
 import org.apache.maven.plugin.ContextEnabled;
-import org.apache.maven.plugin.DebugConfigurationListener;
 import org.apache.maven.plugin.ExtensionRealmCache;
 import org.apache.maven.plugin.InvalidPluginDescriptorException;
 import org.apache.maven.plugin.MavenPluginManager;
-import org.apache.maven.plugin.MavenPluginValidator;
 import org.apache.maven.plugin.Mojo;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoNotFoundException;
@@ -65,7 +63,6 @@ import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.component.composition.CycleDetectedInComponentGraphException;
 import org.codehaus.plexus.component.configurator.ComponentConfigurationException;
 import org.codehaus.plexus.component.configurator.ComponentConfigurator;
-import org.codehaus.plexus.component.configurator.ConfigurationListener;
 import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluationException;
 import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluator;
 import org.codehaus.plexus.component.repository.ComponentDescriptor;
@@ -128,7 +125,7 @@ public class DefaultMavenPluginManager
      * same class realm is used to load build extensions and load mojos for extensions=true plugins.
      * </p>
      * <strong>Note:</strong> This is part of internal implementation and may be changed or removed without notice
-     * 
+     *
      * @since 3.3.0
      */
     public static final String KEY_EXTENSIONS_REALMS = DefaultMavenPluginManager.class.getName() + "/extensionsRealms";
@@ -165,6 +162,9 @@ public class DefaultMavenPluginManager
 
     @Inject
     private PluginArtifactsCache pluginArtifactsCache;
+
+    @Inject
+    private MavenPluginValidator pluginValidator;
 
     private ExtensionDescriptorBuilder extensionDescriptorBuilder = new ExtensionDescriptorBuilder();
 
@@ -243,14 +243,13 @@ public class DefaultMavenPluginManager
             throw new PluginDescriptorParsingException( plugin, pluginFile.getAbsolutePath(), e );
         }
 
-        MavenPluginValidator validator = new MavenPluginValidator( pluginArtifact );
+        List<String> errors = new ArrayList<>();
+        pluginValidator.validate( pluginArtifact, pluginDescriptor, errors );
 
-        validator.validate( pluginDescriptor );
-
-        if ( validator.hasErrors() )
+        if ( !errors.isEmpty() )
         {
             throw new InvalidPluginDescriptorException(
-                "Invalid plugin descriptor for " + plugin.getId() + " (" + pluginFile + ")", validator.getErrors() );
+                "Invalid plugin descriptor for " + plugin.getId() + " (" + pluginFile + ")", errors );
         }
 
         pluginDescriptor.setPluginArtifact( pluginArtifact );
@@ -619,13 +618,13 @@ public class DefaultMavenPluginManager
             // so that this method could entirely be handled by a plexus lookup?
             configurator = container.lookup( ComponentConfigurator.class, configuratorId );
 
-            ConfigurationListener listener = new DebugConfigurationListener( logger );
-
             ValidatingConfigurationListener validator =
-                new ValidatingConfigurationListener( mojo, mojoDescriptor, listener );
+                new ValidatingConfigurationListener( mojo, mojoDescriptor, logger );
 
             logger.debug(
                 "Configuring mojo '" + mojoDescriptor.getId() + "' with " + configuratorId + " configurator -->" );
+
+            validateReadOnlyParameters( mojoDescriptor, configuration );
 
             configurator.configureComponent( mojo, configuration, expressionEvaluator, pluginRealm, validator );
 
@@ -719,7 +718,6 @@ public class DefaultMavenPluginManager
             {
                 continue;
             }
-
             Object value = null;
 
             PlexusConfiguration config = configuration.getChild( parameter.getName(), false );
@@ -742,11 +740,52 @@ public class DefaultMavenPluginManager
                         + configuration.getName() + "'";
                     throw new ComponentConfigurationException( configuration, msg, e );
                 }
+
             }
 
             if ( value == null && ( config == null || config.getChildCount() <= 0 ) )
             {
                 invalidParameters.add( parameter );
+            }
+        }
+
+        if ( !invalidParameters.isEmpty() )
+        {
+            throw new PluginParameterException( mojoDescriptor, invalidParameters );
+        }
+    }
+
+    private void validateReadOnlyParameters( MojoDescriptor mojoDescriptor, PlexusConfiguration configuration )
+            throws PluginParameterException
+    {
+        if ( mojoDescriptor.getParameters() == null )
+        {
+            return;
+        }
+
+        List<Parameter> invalidParameters = new ArrayList<>();
+
+        for ( Parameter parameter : mojoDescriptor.getParameters() )
+        {
+            if ( parameter.isEditable() )
+            {
+                // mojo parameter not read-only: ignore
+                continue;
+            }
+            PlexusConfiguration config = configuration.getChild( parameter.getName(), false );
+            if ( config == null )
+            {
+              // parameter not configured: ignore
+              continue;
+            }
+
+            String value = config.getValue( null );
+            String defaultValue = config.getAttribute( "default-value", null );
+            if ( value != null && defaultValue != null && !Objects.equals( defaultValue, value ) )
+            {
+                invalidParameters.add( parameter );
+                logger.error( "Invalid plugin configuration: Cannot override read-only parameter '"
+                    + parameter.getName() + "' in goal '" + mojoDescriptor.getGoal() + "'" );
             }
         }
 

@@ -60,8 +60,9 @@ public class DefaultProjectsSelector implements ProjectsSelector
     {
         ProjectBuildingRequest projectBuildingRequest = request.getProjectBuildingRequest();
 
-        List<ProjectBuildingResult> results = projectBuilder.build( files, request.isRecursive(),
-                projectBuildingRequest );
+        boolean hasProjectSelection = !request.getProjectActivation().isEmpty();
+        boolean isRecursive = hasProjectSelection || request.isRecursive();
+        List<ProjectBuildingResult> results = projectBuilder.build( files, isRecursive, projectBuildingRequest );
 
         List<MavenProject> projects = new ArrayList<>( results.size() );
 
@@ -74,7 +75,7 @@ public class DefaultProjectsSelector implements ProjectsSelector
             if ( !result.getProblems().isEmpty() && LOGGER.isWarnEnabled() )
             {
                 LOGGER.warn( "" );
-                LOGGER.warn( "Some problems were encountered while building the effective model for {}",
+                LOGGER.warn( "Some problems were encountered while building the effective model for '{}'",
                         result.getProject().getId() );
 
                 for ( ModelProblem problem : result.getProblems() )

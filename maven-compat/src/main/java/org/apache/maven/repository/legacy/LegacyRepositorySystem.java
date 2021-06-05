@@ -266,15 +266,6 @@ public class LegacyRepositorySystem
                                  ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE );
     }
 
-    public ArtifactRepository createDefaultRemoteRepository()
-        throws InvalidRepositoryException
-    {
-        return createRepository( RepositorySystem.DEFAULT_REMOTE_REPO_URL, RepositorySystem.DEFAULT_REMOTE_REPO_ID,
-                                 true, ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY, false,
-                                 ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY,
-                                 ArtifactRepositoryPolicy.CHECKSUM_POLICY_WARN );
-    }
-
     public ArtifactRepository createLocalRepository( String url, String repositoryId )
         throws IOException
     {
@@ -440,6 +431,8 @@ public class LegacyRepositorySystem
 
             effectiveRepository.setMirroredRepositories( mirroredRepos );
 
+            effectiveRepository.setBlocked( aliasedRepo.isBlocked() );
+
             effectiveRepositories.add( effectiveRepository );
         }
 
@@ -496,6 +489,7 @@ public class LegacyRepositorySystem
                     mirror.setId( repo.getId() );
                     mirror.setUrl( repo.getUrl() );
                     mirror.setLayout( repo.getContentType() );
+                    mirror.setBlocked( repo.isBlocked() );
                     return mirror;
                 }
             }
@@ -532,6 +526,8 @@ public class LegacyRepositorySystem
             {
                 repository.setLayout( getLayout( mirror.getLayout() ) );
             }
+
+            repository.setBlocked( mirror.isBlocked() );
         }
     }
 
