@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code RepositoryPolicy}.
  *
  * @author Benjamin Bentmann
  */
-public class RepositoryPolicyTest
-    extends TestCase
+class RepositoryPolicyTest implements ModelTestInterface< RepositoryPolicy >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<RepositoryPolicy> createValue()
     {
-        new RepositoryPolicy().hashCode();
+        return RepositoryPolicy.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new RepositoryPolicy().equals( null ) );
-
-        new RepositoryPolicy().equals( new RepositoryPolicy() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        RepositoryPolicy thing = new RepositoryPolicy();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new RepositoryPolicy().toString() );
-    }
-
 }

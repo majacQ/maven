@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Model}.
  *
  * @author Benjamin Bentmann
  */
-public class ModelTest
-    extends TestCase
+class ModelTest implements ModelTestInterface< Model >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Model> createValue()
     {
-        new Model().hashCode();
+        return Model.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Model().equals( null ) );
-
-        new Model().equals( new Model() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Model thing = new Model();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Model().toString() );
-    }
-
 }

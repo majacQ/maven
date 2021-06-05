@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code CiManagement}.
  *
  * @author Benjamin Bentmann
  */
-public class CiManagementTest
-    extends TestCase
+class CiManagementTest implements ModelTestInterface< CiManagement >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<CiManagement> createValue()
     {
-        new CiManagement().hashCode();
+        return CiManagement.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new CiManagement().equals( null ) );
-
-        new CiManagement().equals( new CiManagement() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        CiManagement thing = new CiManagement();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new CiManagement().toString() );
-    }
-
 }
+

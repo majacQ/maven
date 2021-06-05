@@ -21,42 +21,42 @@ package org.apache.maven.graph;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
-import org.apache.maven.DefaultMaven;
 import org.apache.maven.MavenExecutionException;
 import org.apache.maven.ProjectCycleException;
 import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.execution.BuildResumptionDataRepository;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.execution.ProjectDependencyGraph;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.building.DefaultModelProblem;
-import org.apache.maven.model.building.ModelProblem;
-import org.apache.maven.model.building.ModelProblemUtils;
-import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.building.Result;
-import org.apache.maven.model.building.UrlModelSource;
 import org.apache.maven.project.DuplicateProjectException;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
-import org.apache.maven.project.ProjectBuildingRequest;
-import org.apache.maven.project.ProjectBuildingResult;
-import org.codehaus.plexus.logging.Logger;
+import org.apache.maven.project.collector.MultiModuleCollectionStrategy;
+import org.apache.maven.project.collector.PomlessCollectionStrategy;
+import org.apache.maven.project.collector.RequestPomCollectionStrategy;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.dag.CycleDetectedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static java.util.Comparator.comparing;
 
 /**
  * Builds the {@link ProjectDependencyGraph inter-dependencies graph} between projects in the reactor.
@@ -66,12 +66,24 @@ import org.codehaus.plexus.util.dag.CycleDetectedException;
 public class DefaultGraphBuilder
     implements GraphBuilder
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger( DefaultGraphBuilder.class );
+
+    private final BuildResumptionDataRepository buildResumptionDataRepository;
+    private final PomlessCollectionStrategy pomlessCollectionStrategy;
+    private final MultiModuleCollectionStrategy multiModuleCollectionStrategy;
+    private final RequestPomCollectionStrategy requestPomCollectionStrategy;
 
     @Inject
-    private Logger logger;
-
-    @Inject
-    protected ProjectBuilder projectBuilder;
+    public DefaultGraphBuilder( BuildResumptionDataRepository buildResumptionDataRepository,
+                                PomlessCollectionStrategy pomlessCollectionStrategy,
+                                MultiModuleCollectionStrategy multiModuleCollectionStrategy,
+                                RequestPomCollectionStrategy requestPomCollectionStrategy )
+    {
+        this.buildResumptionDataRepository = buildResumptionDataRepository;
+        this.pomlessCollectionStrategy = pomlessCollectionStrategy;
+        this.multiModuleCollectionStrategy = multiModuleCollectionStrategy;
+        this.requestPomCollectionStrategy = requestPomCollectionStrategy;
+    }
 
     @Override
     public Result<ProjectDependencyGraph> build( MavenSession session )
@@ -83,7 +95,8 @@ public class DefaultGraphBuilder
             if ( result == null )
             {
                 final List<MavenProject> projects = getProjectsForMavenReactor( session );
-                validateProjects( projects );
+                validateProjects( projects, session.getRequest() );
+                enrichRequestFromResumptionData( projects, session.getRequest() );
                 result = reactorDependencyGraph( session, projects );
             }
 
@@ -124,9 +137,10 @@ public class DefaultGraphBuilder
     {
         ProjectDependencyGraph projectDependencyGraph = new DefaultProjectDependencyGraph( projects );
         List<MavenProject> activeProjects = projectDependencyGraph.getSortedProjects();
+        activeProjects = trimProjectsToRequest( activeProjects, projectDependencyGraph, session.getRequest() );
         activeProjects = trimSelectedProjects( activeProjects, projectDependencyGraph, session.getRequest() );
+        activeProjects = trimResumedProjects( activeProjects, projectDependencyGraph, session.getRequest() );
         activeProjects = trimExcludedProjects( activeProjects, session.getRequest() );
-        activeProjects = trimResumedProjects( activeProjects, session.getRequest() );
 
         if ( activeProjects.size() != projectDependencyGraph.getSortedProjects().size() )
         {
@@ -134,6 +148,26 @@ public class DefaultGraphBuilder
         }
 
         return Result.success( projectDependencyGraph );
+    }
+
+    private List<MavenProject> trimProjectsToRequest( List<MavenProject> activeProjects,
+                                                      ProjectDependencyGraph graph,
+                                                      MavenExecutionRequest request )
+            throws MavenExecutionException
+    {
+        List<MavenProject> result = activeProjects;
+
+        if ( request.getPom() != null )
+        {
+            result = getProjectsInRequestScope( request, activeProjects );
+
+            List<MavenProject> sortedProjects = graph.getSortedProjects();
+            result.sort( comparing( sortedProjects::indexOf ) );
+
+            result = includeAlsoMakeTransitively( result, request, graph );
+        }
+
+        return result;
     }
 
     private List<MavenProject> trimSelectedProjects( List<MavenProject> projects, ProjectDependencyGraph graph,
@@ -144,84 +178,60 @@ public class DefaultGraphBuilder
 
         if ( !request.getSelectedProjects().isEmpty() )
         {
-            File reactorDirectory = null;
-            if ( request.getBaseDirectory() != null )
-            {
-                reactorDirectory = new File( request.getBaseDirectory() );
-            }
+            File reactorDirectory = getReactorDirectory( request );
 
-            Collection<MavenProject> selectedProjects = new LinkedHashSet<>( projects.size() );
+            Collection<MavenProject> selectedProjects = new LinkedHashSet<>();
 
             for ( String selector : request.getSelectedProjects() )
             {
-                MavenProject selectedProject = null;
+                MavenProject selectedProject = projects.stream()
+                        .filter( project -> isMatchingProject( project, selector, reactorDirectory ) )
+                        .findFirst()
+                        .orElseThrow( () -> new MavenExecutionException(
+                                "Could not find the selected project in the reactor: " + selector, request.getPom() ) );
+                selectedProjects.add( selectedProject );
 
-                for ( MavenProject project : projects )
+                List<MavenProject> children = selectedProject.getCollectedProjects();
+                if ( children != null )
                 {
-                    if ( isMatchingProject( project, selector, reactorDirectory ) )
-                    {
-                        selectedProject = project;
-                        break;
-                    }
-                }
-
-                if ( selectedProject != null )
-                {
-                    selectedProjects.add( selectedProject );
-                }
-                else
-                {
-                    throw new MavenExecutionException( "Could not find the selected project in the reactor: "
-                        + selector, request.getPom() );
+                    selectedProjects.addAll( children );
                 }
             }
 
-            boolean makeUpstream = false;
-            boolean makeDownstream = false;
+            result = new ArrayList<>( selectedProjects );
 
-            if ( MavenExecutionRequest.REACTOR_MAKE_UPSTREAM.equals( request.getMakeBehavior() ) )
-            {
-                makeUpstream = true;
-            }
-            else if ( MavenExecutionRequest.REACTOR_MAKE_DOWNSTREAM.equals( request.getMakeBehavior() ) )
-            {
-                makeDownstream = true;
-            }
-            else if ( MavenExecutionRequest.REACTOR_MAKE_BOTH.equals( request.getMakeBehavior() ) )
-            {
-                makeUpstream = true;
-                makeDownstream = true;
-            }
-            else if ( StringUtils.isNotEmpty( request.getMakeBehavior() ) )
-            {
-                throw new MavenExecutionException( "Invalid reactor make behavior: " + request.getMakeBehavior(),
-                                                   request.getPom() );
-            }
+            result = includeAlsoMakeTransitively( result, request, graph );
 
-            if ( makeUpstream || makeDownstream )
-            {
-                for ( MavenProject selectedProject : new ArrayList<>( selectedProjects ) )
-                {
-                    if ( makeUpstream )
-                    {
-                        selectedProjects.addAll( graph.getUpstreamProjects( selectedProject, true ) );
-                    }
-                    if ( makeDownstream )
-                    {
-                        selectedProjects.addAll( graph.getDownstreamProjects( selectedProject, true ) );
-                    }
-                }
-            }
+            // Order the new list in the original order
+            List<MavenProject> sortedProjects = graph.getSortedProjects();
+            result.sort( comparing( sortedProjects::indexOf ) );
+        }
 
-            result = new ArrayList<>( selectedProjects.size() );
+        return result;
+    }
 
-            for ( MavenProject project : projects )
-            {
-                if ( selectedProjects.contains( project ) )
-                {
-                    result.add( project );
-                }
-            }
+    private List<MavenProject> trimResumedProjects( List<MavenProject> projects, ProjectDependencyGraph graph,
+                                                    MavenExecutionRequest request )
+            throws MavenExecutionException
+    {
+        List<MavenProject> result = projects;
+
+        if ( StringUtils.isNotEmpty( request.getResumeFrom() ) )
+        {
+            File reactorDirectory = getReactorDirectory( request );
+
+            String selector = request.getResumeFrom();
+
+            MavenProject resumingFromProject = projects.stream()
+                    .filter( project -> isMatchingProject( project, selector, reactorDirectory ) )
+                    .findFirst()
+                    .orElseThrow( () -> new MavenExecutionException(
+                            "Could not find project to resume reactor build from: " + selector + " vs "
+                            + formatProjects( projects ), request.getPom() ) );
+            int resumeFromProjectIndex = projects.indexOf( resumingFromProject );
+            List<MavenProject> retainingProjects = result.subList( resumeFromProjectIndex, projects.size() );
+
+            result = includeAlsoMakeTransitively( retainingProjects, request, graph );
         }
 
         return result;
@@ -234,91 +244,99 @@ public class DefaultGraphBuilder
 
         if ( !request.getExcludedProjects().isEmpty() )
         {
-            File reactorDirectory = null;
+            File reactorDirectory = getReactorDirectory( request );
 
-            if ( request.getBaseDirectory() != null )
-            {
-                reactorDirectory = new File( request.getBaseDirectory() );
-            }
-
-            Collection<MavenProject> excludedProjects = new LinkedHashSet<>( projects.size() );
+            result = new ArrayList<>( projects );
 
             for ( String selector : request.getExcludedProjects() )
             {
-                MavenProject excludedProject = null;
-
-                for ( MavenProject project : projects )
-                {
-                    if ( isMatchingProject( project, selector, reactorDirectory ) )
-                    {
-                        excludedProject = project;
-                        break;
-                    }
-                }
-
-                if ( excludedProject != null )
-                {
-                    excludedProjects.add( excludedProject );
-                }
-                else
-                {
-                    throw new MavenExecutionException( "Could not find the selected project in the reactor: "
-                        + selector, request.getPom() );
-                }
-            }
-
-            result = new ArrayList<>( projects.size() );
-            for ( MavenProject project : projects )
-            {
-                if ( !excludedProjects.contains( project ) )
-                {
-                    result.add( project );
-                }
+                MavenProject excludedProject = projects.stream()
+                        .filter( project -> isMatchingProject( project, selector, reactorDirectory ) )
+                        .findFirst()
+                        .orElseThrow( () -> new MavenExecutionException( "Could not find the selected project in "
+                                + "the reactor: " + selector, request.getPom() ) );
+                result.remove( excludedProject );
             }
         }
 
         return result;
     }
 
-    private List<MavenProject> trimResumedProjects( List<MavenProject> projects, MavenExecutionRequest request )
-        throws MavenExecutionException
+    private List<MavenProject> includeAlsoMakeTransitively( List<MavenProject> projects, MavenExecutionRequest request,
+                                                            ProjectDependencyGraph graph )
+            throws MavenExecutionException
     {
         List<MavenProject> result = projects;
 
-        if ( StringUtils.isNotEmpty( request.getResumeFrom() ) )
+        String makeBehavior = request.getMakeBehavior();
+        boolean makeBoth = MavenExecutionRequest.REACTOR_MAKE_BOTH.equals( makeBehavior );
+
+        boolean makeUpstream = makeBoth || MavenExecutionRequest.REACTOR_MAKE_UPSTREAM.equals( makeBehavior );
+        boolean makeDownstream = makeBoth || MavenExecutionRequest.REACTOR_MAKE_DOWNSTREAM.equals( makeBehavior );
+
+        if ( StringUtils.isNotEmpty( makeBehavior ) && !makeUpstream && !makeDownstream )
         {
-            File reactorDirectory = null;
-            if ( request.getBaseDirectory() != null )
-            {
-                reactorDirectory = new File( request.getBaseDirectory() );
-            }
+            throw new MavenExecutionException( "Invalid reactor make behavior: " + makeBehavior,
+                    request.getPom() );
+        }
 
-            String selector = request.getResumeFrom();
-
-            result = new ArrayList<>( projects.size() );
-
-            boolean resumed = false;
+        if ( makeUpstream || makeDownstream )
+        {
+            Set<MavenProject> projectsSet = new HashSet<>( projects );
 
             for ( MavenProject project : projects )
             {
-                if ( !resumed && isMatchingProject( project, selector, reactorDirectory ) )
+                if ( makeUpstream )
                 {
-                    resumed = true;
+                    projectsSet.addAll( graph.getUpstreamProjects( project, true ) );
                 }
-
-                if ( resumed )
+                if ( makeDownstream )
                 {
-                    result.add( project );
+                    projectsSet.addAll( graph.getDownstreamProjects( project, true ) );
                 }
             }
 
-            if ( !resumed )
-            {
-                throw new MavenExecutionException( "Could not find project to resume reactor build from: " + selector
-                    + " vs " + formatProjects( projects ), request.getPom() );
-            }
+            result = new ArrayList<>( projectsSet );
+
+            // Order the new list in the original order
+            List<MavenProject> sortedProjects = graph.getSortedProjects();
+            result.sort( comparing( sortedProjects::indexOf ) );
         }
 
+        return result;
+    }
+
+    private void enrichRequestFromResumptionData( List<MavenProject> projects, MavenExecutionRequest request )
+    {
+        if ( request.isResume() )
+        {
+            projects.stream()
+                    .filter( MavenProject::isExecutionRoot )
+                    .findFirst()
+                    .ifPresent( rootProject ->
+                            buildResumptionDataRepository.applyResumptionData( request, rootProject ) );
+        }
+    }
+
+    private List<MavenProject> getProjectsInRequestScope( MavenExecutionRequest request, List<MavenProject> projects )
+            throws MavenExecutionException
+    {
+        if ( request.getPom() == null )
+        {
+            return projects;
+        }
+
+        MavenProject requestPomProject = projects.stream()
+                .filter( project -> request.getPom().equals( project.getFile() ) )
+                .findFirst()
+                .orElseThrow( () -> new MavenExecutionException(
+                        "Could not find a project in reactor matching the request POM", request.getPom() ) );
+
+        List<MavenProject> modules = requestPomProject.getCollectedProjects() != null
+                ? requestPomProject.getCollectedProjects() : Collections.emptyList();
+
+        List<MavenProject> result = new ArrayList<>( modules );
+        result.add( requestPomProject );
         return result;
     }
 
@@ -376,6 +394,16 @@ public class DefaultGraphBuilder
         return false;
     }
 
+    private File getReactorDirectory( MavenExecutionRequest request )
+    {
+        if ( request.getBaseDirectory() != null )
+        {
+            return new File( request.getBaseDirectory() );
+        }
+
+        return null;
+    }
+
     // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
     // Project collection
@@ -386,76 +414,32 @@ public class DefaultGraphBuilder
         throws ProjectBuildingException
     {
         MavenExecutionRequest request = session.getRequest();
-
         request.getProjectBuildingRequest().setRepositorySession( session.getRepositorySession() );
 
-        List<MavenProject> projects = new ArrayList<>();
-
-        // We have no POM file.
-        //
+        // 1. Collect project for invocation without a POM.
         if ( request.getPom() == null )
         {
-            ModelSource modelSource = new UrlModelSource( DefaultMaven.class.getResource( "project/standalone.xml" ) );
-            MavenProject project = projectBuilder.build( modelSource, request.getProjectBuildingRequest() )
-                .getProject();
-            project.setExecutionRoot( true );
-            projects.add( project );
-            request.setProjectPresent( false );
+            return pomlessCollectionStrategy.collectProjects( request );
+        }
+
+        // 2. Collect projects for all modules in the multi-module project.
+        List<MavenProject> projects = multiModuleCollectionStrategy.collectProjects( request );
+        if ( !projects.isEmpty() )
+        {
             return projects;
         }
 
-        List<File> files = Arrays.asList( request.getPom().getAbsoluteFile() );
-        collectProjects( projects, files, request );
-        return projects;
+        // 3. Collect projects for explicitly requested POM.
+        return requestPomCollectionStrategy.collectProjects( request );
     }
 
-    private void collectProjects( List<MavenProject> projects, List<File> files, MavenExecutionRequest request )
-        throws ProjectBuildingException
-    {
-        ProjectBuildingRequest projectBuildingRequest = request.getProjectBuildingRequest();
-
-        List<ProjectBuildingResult> results = projectBuilder.build( files, request.isRecursive(),
-                                                                    projectBuildingRequest );
-
-        boolean problems = false;
-
-        for ( ProjectBuildingResult result : results )
-        {
-            projects.add( result.getProject() );
-
-            if ( !result.getProblems().isEmpty() && logger.isWarnEnabled() )
-            {
-                logger.warn( "" );
-                logger.warn( "Some problems were encountered while building the effective model for "
-                    + result.getProject().getId() );
-
-                for ( ModelProblem problem : result.getProblems() )
-                {
-                    String loc = ModelProblemUtils.formatLocation( problem, result.getProjectId() );
-                    logger.warn( problem.getMessage() + ( StringUtils.isNotEmpty( loc ) ? " @ " + loc : "" ) );
-                }
-
-                problems = true;
-            }
-        }
-
-        if ( problems )
-        {
-            logger.warn( "" );
-            logger.warn( "It is highly recommended to fix these problems"
-                + " because they threaten the stability of your build." );
-            logger.warn( "" );
-            logger.warn( "For this reason, future Maven versions might no"
-                + " longer support building such malformed projects." );
-            logger.warn( "" );
-        }
-    }
-
-    private void validateProjects( List<MavenProject> projects )
+    private void validateProjects( List<MavenProject> projects, MavenExecutionRequest request )
+            throws MavenExecutionException
     {
         Map<String, MavenProject> projectsMap = new HashMap<>();
 
-        for ( MavenProject p : projects )
+        List<MavenProject> projectsInRequestScope = getProjectsInRequestScope( request, projects );
+        for ( MavenProject p : projectsInRequestScope )
         {
             String projectKey = ArtifactUtils.key( p.getGroupId(), p.getArtifactId(), p.getVersion() );
 
@@ -474,9 +458,8 @@ public class DefaultGraphBuilder
 
                     if ( projectsMap.containsKey( pluginKey ) )
                     {
-                        logger.warn( project.getName() + " uses " + plugin.getKey()
-                            + " as extensions, which is not possible within the same reactor build. "
-                            + "This plugin was pulled from the local repository!" );
+                        LOGGER.warn( "{} uses {} as extensions, which is not possible within the same reactor build. "
+                            + "This plugin was pulled from the local repository!", project.getName(), plugin.getKey() );
                     }
                 }
             }

@@ -64,9 +64,9 @@ public class DefaultMavenExecutionRequest
 
     private boolean interactiveMode = true;
 
-    private boolean cacheTransferError;
+    private boolean cacheTransferError = false;
 
-    private boolean cacheNotFound;
+    private boolean cacheNotFound = false;
 
     private List<Proxy> proxies;
 
@@ -116,6 +116,8 @@ public class DefaultMavenExecutionRequest
 
     private List<String> excludedProjects;
 
+    private boolean resume = false;
+
     private String resumeFrom;
 
     private String makeBehavior;
@@ -157,7 +159,7 @@ public class DefaultMavenExecutionRequest
      *
      * @issue MNG-2681
      */
-    private boolean noSnapshotUpdates;
+    private boolean noSnapshotUpdates = false;
 
     private boolean useLegacyLocalRepositoryManager = false;
 
@@ -298,6 +300,12 @@ public class DefaultMavenExecutionRequest
         }
 
         return excludedProjects;
+    }
+
+    @Override
+    public boolean isResume()
+    {
+        return resume;
     }
 
     @Override
@@ -594,6 +602,14 @@ public class DefaultMavenExecutionRequest
         {
             this.excludedProjects = null;
         }
+
+        return this;
+    }
+
+    @Override
+    public MavenExecutionRequest setResume( boolean resume )
+    {
+        this.resume = resume;
 
         return this;
     }

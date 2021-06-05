@@ -19,38 +19,16 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Contributor}.
  *
  * @author Benjamin Bentmann
  */
-public class ContributorTest
-    extends TestCase
+class ContributorTest implements ModelTestInterface< Contributor >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Contributor> createValue()
     {
-        new Contributor().hashCode();
+        return Contributor.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Contributor().equals( null ) );
-
-        new Contributor().equals( new Contributor() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Contributor thing = new Contributor();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Contributor().toString() );
-    }
-
 }

@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code IssueManagement}.
  *
  * @author Benjamin Bentmann
  */
-public class IssueManagementTest
-    extends TestCase
+class IssueManagementTest implements ModelTestInterface< IssueManagement >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<IssueManagement> createValue()
     {
-        new IssueManagement().hashCode();
+        return IssueManagement.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new IssueManagement().equals( null ) );
-
-        new IssueManagement().equals( new IssueManagement() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        IssueManagement thing = new IssueManagement();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new IssueManagement().toString() );
-    }
-
 }

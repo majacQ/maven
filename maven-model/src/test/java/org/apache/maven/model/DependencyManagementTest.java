@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code DependencyManagement}.
  *
  * @author Benjamin Bentmann
  */
-public class DependencyManagementTest
-    extends TestCase
+class DependencyManagementTest implements ModelTestInterface< DependencyManagement >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<DependencyManagement> createValue()
     {
-        new DependencyManagement().hashCode();
+        return DependencyManagement.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new DependencyManagement().equals( null ) );
-
-        new DependencyManagement().equals( new DependencyManagement() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        DependencyManagement thing = new DependencyManagement();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new DependencyManagement().toString() );
-    }
-
 }

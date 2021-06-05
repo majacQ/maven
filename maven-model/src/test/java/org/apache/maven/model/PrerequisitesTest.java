@@ -19,38 +19,16 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Prerequisites}.
  *
  * @author Benjamin Bentmann
  */
-public class PrerequisitesTest
-    extends TestCase
+class PrerequisitesTest implements ModelTestInterface< Prerequisites >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Prerequisites> createValue()
     {
-        new Prerequisites().hashCode();
+        return Prerequisites.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Prerequisites().equals( null ) );
-
-        new Prerequisites().equals( new Prerequisites() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Prerequisites thing = new Prerequisites();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Prerequisites().toString() );
-    }
-
 }

@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Extension}.
  *
  * @author Benjamin Bentmann
  */
-public class ExtensionTest
-    extends TestCase
+class ExtensionTest implements ModelTestInterface< Extension >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Extension> createValue()
     {
-        new Extension().hashCode();
+        return Extension.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Extension().equals( null ) );
-
-        new Extension().equals( new Extension() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Extension thing = new Extension();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Extension().toString() );
-    }
-
 }

@@ -26,11 +26,11 @@ under the License.
     <groupId>org.apache.maven</groupId>
     <artifactId>maven-parent</artifactId>
     <version>34</version>
-    <relativePath>../pom/maven/pom.xml</relativePath>
+    <relativePath />
   </parent>
 
   <artifactId>maven</artifactId>
-  <version>3.7.0-SNAPSHOT</version>
+  <version>4.0.0-alpha-1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Maven</name>
@@ -52,23 +52,22 @@ under the License.
     <classWorldsVersion>2.6.0</classWorldsVersion>
     <commonsCliVersion>1.4</commonsCliVersion>
     <commonsLangVersion>3.8.1</commonsLangVersion>
-    <junitVersion>4.13</junitVersion>
+    <junitVersion>4.13.1</junitVersion>
     <mockitoVersion>3.2.0</mockitoVersion>
     <plexusVersion>2.1.0</plexusVersion>
     <plexusInterpolationVersion>1.26</plexusInterpolationVersion>
     <plexusUtilsVersion>3.3.0</plexusUtilsVersion>
-    <guiceVersion>4.2.2</guiceVersion>
+    <guiceVersion>4.2.3</guiceVersion>
     <sisuInjectVersion>0.3.4</sisuInjectVersion>
-    <wagonVersion>3.3.4</wagonVersion>
+    <wagonVersion>3.4.2</wagonVersion>
     <jsoupVersion>1.12.1</jsoupVersion>
     <securityDispatcherVersion>1.4</securityDispatcherVersion>
     <cipherVersion>1.8</cipherVersion>
     <modelloVersion>1.11</modelloVersion>
     <jxpathVersion>1.3</jxpathVersion>
-    <resolverVersion>1.4.1</resolverVersion>
-    <slf4jVersion>1.7.29</slf4jVersion>
+    <resolverVersion>1.6.1</resolverVersion>
+    <slf4jVersion>1.7.30</slf4jVersion>
     <xmlunitVersion>2.6.4</xmlunitVersion>
-    <powermockVersion>1.7.4</powermockVersion>
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <!-- Control the name of the distribution and information output by mvn -->
     <distributionId>apache-maven</distributionId>
@@ -95,7 +94,10 @@ under the License.
     <module>maven-slf4j-wrapper</module>
     <module>maven-embedder</module>
     <module>maven-compat</module>
-    <module>apache-maven</module>
+    <module>apache-maven</module> <!-- rename to apache-maven/maven.pom after RAT-268 -->
+    <module>maven-wrapper</module>
+    <module>apache-maven/maven-wrapper.pom</module>
+    <module>maven-xml</module>
   </modules>
 
   <scm>
@@ -110,7 +112,7 @@ under the License.
   </issueManagement>
   <ciManagement>
     <system>Jenkins</system>
-    <url>https://builds.apache.org/job/maven-box/job/maven/</url>
+    <url>https://ci-builds.apache.org/job/Maven/job/maven-box/job/maven/</url>
   </ciManagement>
   <distributionManagement>
     <downloadUrl>https://maven.apache.org/download.html</downloadUrl>
@@ -249,6 +251,11 @@ under the License.
         <artifactId>maven-slf4j-wrapper</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-xml</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <!--bootstrap-end-comment-->
       <!--  Plexus -->
       <dependency>
@@ -305,7 +312,7 @@ under the License.
       <dependency>
         <groupId>org.fusesource.jansi</groupId>
         <artifactId>jansi</artifactId>
-        <version>1.17.1</version>
+        <version>1.18</version>
       </dependency>
       <dependency>
         <groupId>org.slf4j</groupId>
@@ -420,6 +427,12 @@ under the License.
       </dependency>
       <dependency>
         <groupId>org.xmlunit</groupId>
+        <artifactId>xmlunit-assertj</artifactId>
+        <version>${xmlunitVersion}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.xmlunit</groupId>
         <artifactId>xmlunit-core</artifactId>
         <version>${xmlunitVersion}</version>
         <scope>test</scope>
@@ -429,11 +442,6 @@ under the License.
         <artifactId>xmlunit-matchers</artifactId>
         <version>${xmlunitVersion}</version>
         <scope>test</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.powermock</groupId>
-        <artifactId>powermock-reflect</artifactId>
-        <version>${powermockVersion}</version>
       </dependency>
       <dependency>
         <groupId>org.hamcrest</groupId>
@@ -446,6 +454,19 @@ under the License.
         <artifactId>hamcrest-library</artifactId>
         <version>2.2</version>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>3.14.0</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>5.5.2</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
     </dependencies>
     <!--bootstrap-start-comment-->
@@ -490,6 +511,11 @@ under the License.
               </goals>
             </execution>
           </executions>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>3.3.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -552,31 +578,6 @@ under the License.
               <exclude>src/main/appended-resources/licenses/CDDL-1.0.txt</exclude>
               <exclude>src/main/appended-resources/licenses/EPL-1.0.txt</exclude>
             </excludes>
-          </configuration>
-        </plugin>
-        <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
-        <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
-          <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.rat</groupId>
-                    <artifactId>apache-rat-plugin</artifactId>
-                    <versionRange>[0.10,)</versionRange>
-                    <goals>
-                      <goal>check</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
           </configuration>
         </plugin>
       </plugins>
@@ -663,6 +664,7 @@ under the License.
       <build>
         <plugins>
           <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-assembly-plugin</artifactId>
             <executions>
               <execution>

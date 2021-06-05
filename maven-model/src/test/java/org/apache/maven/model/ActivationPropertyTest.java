@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code ActivationProperty}.
  *
  * @author Benjamin Bentmann
  */
-public class ActivationPropertyTest
-    extends TestCase
+class ActivationPropertyTest implements ModelTestInterface< ActivationProperty >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<ActivationProperty> createValue()
     {
-        new ActivationProperty().hashCode();
+        return ActivationProperty.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new ActivationProperty().equals( null ) );
-
-        new ActivationProperty().equals( new ActivationProperty() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        ActivationProperty thing = new ActivationProperty();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new ActivationProperty().toString() );
-    }
-
 }
+

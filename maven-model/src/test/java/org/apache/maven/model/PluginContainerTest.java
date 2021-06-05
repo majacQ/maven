@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code PluginContainer}.
  *
  * @author Benjamin Bentmann
  */
-public class PluginContainerTest
-    extends TestCase
+class PluginContainerTest implements ModelTestInterface< PluginContainer >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<PluginContainer> createValue()
     {
-        new PluginContainer().hashCode();
+        return PluginContainer.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new PluginContainer().equals( null ) );
-
-        new PluginContainer().equals( new PluginContainer() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        PluginContainer thing = new PluginContainer();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new PluginContainer().toString() );
-    }
-
 }

@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code ReportSet}.
  *
  * @author Benjamin Bentmann
  */
-public class ReportSetTest
-    extends TestCase
+class ReportSetTest implements ModelTestInterface< ReportSet >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<ReportSet> createValue()
     {
-        new ReportSet().hashCode();
+        return ReportSet.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new ReportSet().equals( null ) );
-
-        new ReportSet().equals( new ReportSet() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        ReportSet thing = new ReportSet();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new ReportSet().toString() );
-    }
-
 }

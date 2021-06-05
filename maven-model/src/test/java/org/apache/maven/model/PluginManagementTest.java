@@ -19,38 +19,16 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code PluginManagement}.
  *
  * @author Benjamin Bentmann
  */
-public class PluginManagementTest
-    extends TestCase
+class PluginManagementTest implements ModelTestInterface< PluginManagement >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<PluginManagement> createValue()
     {
-        new PluginManagement().hashCode();
+        return PluginManagement.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new PluginManagement().equals( null ) );
-
-        new PluginManagement().equals( new PluginManagement() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        PluginManagement thing = new PluginManagement();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new PluginManagement().toString() );
-    }
-
 }

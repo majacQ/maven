@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Repository}.
  *
  * @author Benjamin Bentmann
  */
-public class RepositoryTest
-    extends TestCase
+class RepositoryTest implements ModelTestInterface< Repository >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Repository> createValue()
     {
-        new Repository().hashCode();
+        return Repository.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Repository().equals( null ) );
-
-        new Repository().equals( new Repository() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Repository thing = new Repository();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Repository().toString() );
-    }
-
 }
+

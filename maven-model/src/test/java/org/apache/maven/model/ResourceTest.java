@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Resource}.
  *
  * @author Benjamin Bentmann
  */
-public class ResourceTest
-    extends TestCase
+class ResourceTest implements ModelTestInterface< Resource >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Resource> createValue()
     {
-        new Resource().hashCode();
+        return Resource.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Resource().equals( null ) );
-
-        new Resource().equals( new Resource() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Resource thing = new Resource();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Resource().toString() );
-    }
-
 }
+

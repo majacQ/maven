@@ -19,38 +19,16 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Notifier}.
  *
  * @author Benjamin Bentmann
  */
-public class NotifierTest
-    extends TestCase
+class NotifierTest implements ModelTestInterface< Notifier >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Notifier> createValue()
     {
-        new Notifier().hashCode();
+        return Notifier.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Notifier().equals( null ) );
-
-        new Notifier().equals( new Notifier() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Notifier thing = new Notifier();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Notifier().toString() );
-    }
-
 }

@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Developer}.
  *
  * @author Benjamin Bentmann
  */
-public class DeveloperTest
-    extends TestCase
+class DeveloperTest implements ModelTestInterface< Developer >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Developer> createValue()
     {
-        new Developer().hashCode();
+        return Developer.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Developer().equals( null ) );
-
-        new Developer().equals( new Developer() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Developer thing = new Developer();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Developer().toString() );
-    }
-
 }

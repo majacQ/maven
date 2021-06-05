@@ -21,10 +21,10 @@ properties([buildDiscarder(logRotator(artifactNumToKeepStr: '5', numToKeepStr: e
 
 def buildOs = 'linux'
 def buildJdk = '8'
-def buildMvn = '3.6.2'
+def buildMvn = '3.6.3'
 def runITsOses = ['linux', 'windows']
-def runITsJdks = ['8', '11', '14', '15']
-def runITsMvn = '3.6.2'
+def runITsJdks = ['8', '11']
+def runITsMvn = '3.6.3'
 def runITscommand = "mvn clean install -Prun-its,embedded -B -U -V" // -DmavenDistro=... -Dmaven.test.failure.ignore=true
 def tests
 
@@ -52,17 +52,21 @@ node(jenkinsEnv.nodeSelection(osNode)) {
             withMaven(jdk: jdkName, maven: mvnName, mavenLocalRepo:"${WORK_DIR}/.repository", options:[
                 artifactsPublisher(disabled: false),
                 junitPublisher(ignoreAttachments: false),
-                findbugsPublisher(disabled: false),
-                openTasksPublisher(disabled: false),
-                dependenciesFingerprintPublisher(),
-                invokerPublisher(),
-                pipelineGraphPublisher()
-            ]) {
-                sh "mvn clean ${MAVEN_GOAL} -B -U -e -fae -V -Dmaven.test.failure.ignore=true"
+                findbugsPublisher(disabled: true),
+                openTasksPublisher(disabled: true),
+                dependenciesFingerprintPublisher(disabled: false),
+                invokerPublisher(disabled: true),
+                pipelineGraphPublisher(disabled: false)
+            ], publisherStrategy: 'EXPLICIT') {
+			    // For now: maven-wrapper contains 2 poms sharing the same outputDirectory, so separate clean
+			    sh "mvn clean"
+                sh "mvn ${MAVEN_GOAL} -B -U -e -fae -V -Dmaven.test.failure.ignore=true -P versionlessMavenDist"
             }
             dir ('apache-maven/target') {
-                sh "mv apache-maven-*-bin.zip apache-maven-dist.zip"
-                stash includes: 'apache-maven-dist.zip', name: 'dist'
+                stash includes: 'apache-maven-bin.zip,apache-maven-wrapper-*.zip', name: 'maven-dist'
+            }
+            dir ('maven-wrapper/target') {
+                stash includes: 'maven-wrapper.jar', name: 'wrapper-dist'
             }
         }
 
@@ -91,17 +95,20 @@ for (String os in runITsOses) {
                         def WORK_DIR=pwd()
                         checkout tests
                         if (isUnix()) {
-                            sh "rm -rvf $WORK_DIR/apache-maven-dist.zip $WORK_DIR/it-local-repo"
+                            sh "rm -rvf $WORK_DIR/dists $WORK_DIR/it-local-repo"
                         } else {
                             bat "if exist it-local-repo rmdir /s /q it-local-repo"
-                            bat "if exist apache-maven-dist.zip del /q apache-maven-dist.zip"
+                            bat "if exist dists         rmdir /s /q dists"
                         }
-                        unstash 'dist'
+                        dir('dists') {
+                          unstash 'maven-dist'
+                          unstash 'wrapper-dist'
+                        }
                         try {
                             withMaven(jdk: jdkName, maven: mvnName, mavenLocalRepo:"${WORK_DIR}/it-local-repo", options:[
                                 junitPublisher(ignoreAttachments: false)
                             ]) {
-                                String cmd = "${runITscommand} -DmavenDistro=$WORK_DIR/apache-maven-dist.zip -Dmaven.test.failure.ignore=true"
+                                String cmd = "${runITscommand} -DmavenDistro=$WORK_DIR/dists/apache-maven-bin.zip -Dmaven.test.failure.ignore=true -DmavenWrapper=$WORK_DIR/dists/maven-wrapper.jar -DwrapperDistroDir=${WORK_DIR}/dists"
 
                                 if (isUnix()) {
                                     sh 'df -hT'

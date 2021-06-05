@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code DistributionManagement}.
  *
  * @author Benjamin Bentmann
  */
-public class DistributionManagementTest
-    extends TestCase
+class DistributionManagementTest implements ModelTestInterface< DistributionManagement >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<DistributionManagement> createValue()
     {
-        new DistributionManagement().hashCode();
+        return DistributionManagement.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new DistributionManagement().equals( null ) );
-
-        new DistributionManagement().equals( new DistributionManagement() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        DistributionManagement thing = new DistributionManagement();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new DistributionManagement().toString() );
-    }
-
 }

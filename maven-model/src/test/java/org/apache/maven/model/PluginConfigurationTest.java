@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code PluginConfiguration}.
  *
  * @author Benjamin Bentmann
  */
-public class PluginConfigurationTest
-    extends TestCase
+class PluginConfigurationTest implements ModelTestInterface< PluginConfiguration >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<PluginConfiguration> createValue()
     {
-        new PluginConfiguration().hashCode();
+        return PluginConfiguration.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new PluginConfiguration().equals( null ) );
-
-        new PluginConfiguration().equals( new PluginConfiguration() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        PluginConfiguration thing = new PluginConfiguration();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new PluginConfiguration().toString() );
-    }
-
 }

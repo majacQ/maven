@@ -19,38 +19,16 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code Organization}.
  *
  * @author Benjamin Bentmann
  */
-public class OrganizationTest
-    extends TestCase
+class OrganizationTest implements ModelTestInterface< Organization >
 {
-
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<Organization> createValue()
     {
-        new Organization().hashCode();
+        return Organization.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new Organization().equals( null ) );
-
-        new Organization().equals( new Organization() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        Organization thing = new Organization();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new Organization().toString() );
-    }
-
 }

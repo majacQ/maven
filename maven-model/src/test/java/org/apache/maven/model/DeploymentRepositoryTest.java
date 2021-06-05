@@ -19,38 +19,17 @@ package org.apache.maven.model;
  * under the License.
  */
 
-import junit.framework.TestCase;
-
 /**
  * Tests {@code DeploymentRepository}.
  *
  * @author Benjamin Bentmann
  */
-public class DeploymentRepositoryTest
-    extends TestCase
+class DeploymentRepositoryTest implements ModelTestInterface< DeploymentRepository >
 {
 
-    public void testHashCodeNullSafe()
+    @Override
+    public Class<DeploymentRepository> createValue()
     {
-        new DeploymentRepository().hashCode();
+        return DeploymentRepository.class;
     }
-
-    public void testEqualsNullSafe()
-    {
-        assertFalse( new DeploymentRepository().equals( null ) );
-
-        new DeploymentRepository().equals( new DeploymentRepository() );
-    }
-
-    public void testEqualsIdentity()
-    {
-        DeploymentRepository thing = new DeploymentRepository();
-        assertTrue( thing.equals( thing ) );
-    }
-
-    public void testToStringNullSafe()
-    {
-        assertNotNull( new DeploymentRepository().toString() );
-    }
-
 }
