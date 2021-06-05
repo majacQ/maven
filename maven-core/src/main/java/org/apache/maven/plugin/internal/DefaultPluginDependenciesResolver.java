@@ -43,7 +43,6 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.DependencyCollectionException;
-import org.eclipse.aether.collection.DependencySelector;
 import org.eclipse.aether.graph.DependencyFilter;
 import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.graph.DependencyVisitor;
@@ -59,8 +58,11 @@ import org.eclipse.aether.util.artifact.JavaScopes;
 import org.eclipse.aether.util.filter.AndDependencyFilter;
 import org.eclipse.aether.util.filter.ScopeDependencyFilter;
 import org.eclipse.aether.util.graph.manager.DependencyManagerUtils;
+  <<<<<<< MNG-7020
+  =======
 import org.eclipse.aether.util.graph.selector.AndDependencySelector;
 import org.eclipse.aether.util.graph.transformer.ChainedDependencyGraphTransformer;
+  >>>>>>> master
 import org.eclipse.aether.util.repository.SimpleArtifactDescriptorPolicy;
 import org.eclipse.aether.util.version.GenericVersionScheme;
 import org.eclipse.aether.version.InvalidVersionSpecificationException;
@@ -195,14 +197,16 @@ public class DefaultPluginDependenciesResolver
 
         try
         {
-            DependencySelector selector =
-                AndDependencySelector.newInstance( session.getDependencySelector(), new WagonExcluder() );
-
             DefaultRepositorySystemSession pluginSession = new DefaultRepositorySystemSession( session );
+  <<<<<<< MNG-7020
+            pluginSession.setDependencySelector( session.getDependencySelector() );
+            pluginSession.setDependencyGraphTransformer( session.getDependencyGraphTransformer() );
+  =======
             pluginSession.setDependencySelector( selector );
             pluginSession.setDependencyGraphTransformer( ChainedDependencyGraphTransformer.newInstance( 
                                                 session.getDependencyGraphTransformer(),
                                                 new MavenCompatibilityChecker( mavenCompatibilityVersionRange ) ) );
+  >>>>>>> master
 
             CollectRequest request = new CollectRequest();
             request.setRequestContext( REPOSITORY_CONTEXT );
