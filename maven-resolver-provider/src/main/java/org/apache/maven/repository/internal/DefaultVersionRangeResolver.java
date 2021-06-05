@@ -39,8 +39,11 @@ import org.eclipse.aether.resolution.MetadataResult;
 import org.eclipse.aether.resolution.VersionRangeRequest;
 import org.eclipse.aether.resolution.VersionRangeResolutionException;
 import org.eclipse.aether.resolution.VersionRangeResult;
+  <<<<<<< MRESOLVER-157
+  =======
 import org.eclipse.aether.spi.locator.Service;
 import org.eclipse.aether.spi.locator.ServiceLocator;
+  >>>>>>> master
 import org.eclipse.aether.spi.synccontext.SyncContextFactory;
 import org.eclipse.aether.util.version.GenericVersionScheme;
 import org.eclipse.aether.version.InvalidVersionSpecificationException;
@@ -67,7 +70,7 @@ import java.util.Objects;
 @Named
 @Singleton
 public class DefaultVersionRangeResolver
-    implements VersionRangeResolver, Service
+    implements VersionRangeResolver
 {
 
     private static final String MAVEN_METADATA_XML = "maven-metadata.xml";
@@ -90,13 +93,6 @@ public class DefaultVersionRangeResolver
         setMetadataResolver( metadataResolver );
         setSyncContextFactory( syncContextFactory );
         setRepositoryEventDispatcher( repositoryEventDispatcher );
-    }
-
-    public void initService( ServiceLocator locator )
-    {
-        setMetadataResolver( locator.getService( MetadataResolver.class ) );
-        setSyncContextFactory( locator.getService( SyncContextFactory.class ) );
-        setRepositoryEventDispatcher( locator.getService( RepositoryEventDispatcher.class ) );
     }
 
     public DefaultVersionRangeResolver setMetadataResolver( MetadataResolver metadataResolver )
