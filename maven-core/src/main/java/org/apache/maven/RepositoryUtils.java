@@ -210,6 +210,7 @@ public class RepositoryUtils
             builder.setAuthentication( toAuthentication( repo.getAuthentication() ) );
             builder.setProxy( toProxy( repo.getProxy() ) );
             builder.setMirroredRepositories( toRepos( repo.getMirroredRepositories() ) );
+            builder.setBlocked( repo.isBlocked() );
             result = builder.build();
         }
         return result;
@@ -382,7 +383,7 @@ public class RepositoryUtils
         {
             return false;
         }
-    
+
         for ( Iterator<RemoteRepository> it1 = r1.iterator(), it2 = r2.iterator(); it1.hasNext(); )
         {
             if ( !repositoryEquals( it1.next(), it2.next() ) )
@@ -390,7 +391,7 @@ public class RepositoryUtils
                 return false;
             }
         }
-    
+
         return true;
     }
 
@@ -428,7 +429,7 @@ public class RepositoryUtils
         {
             return true;
         }
-    
+
         return Objects.equals( r1.getId(), r2.getId() ) && Objects.equals( r1.getUrl(), r2.getUrl() )
             && policyEquals( r1.getPolicy( false ), r2.getPolicy( false ) )
             && policyEquals( r1.getPolicy( true ), r2.getPolicy( true ) );

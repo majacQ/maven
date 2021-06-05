@@ -37,6 +37,8 @@ import org.apache.maven.repository.Proxy;
 public class MavenArtifactRepository
     implements ArtifactRepository
 {
+    private static final String LS = System.lineSeparator();
+
     private String id;
 
     private String url;
@@ -56,6 +58,8 @@ public class MavenArtifactRepository
     private Proxy proxy;
 
     private List<ArtifactRepository> mirroredRepositories = Collections.emptyList();
+
+    private boolean blocked;
 
     public MavenArtifactRepository()
     {
@@ -139,26 +143,28 @@ public class MavenArtifactRepository
     {
         StringBuilder sb = new StringBuilder( 256 );
 
-        sb.append( "      id: " ).append( getId() ).append( '\n' );
-        sb.append( "      url: " ).append( getUrl() ).append( '\n' );
-        sb.append( "   layout: " ).append( layout != null ? layout : "none" ).append( '\n' );
+        sb.append( "      id: " ).append( getId() ).append( LS );
+        sb.append( "      url: " ).append( getUrl() ).append( LS );
+        sb.append( "   layout: " ).append( layout != null ? layout : "none" );
 
         if ( proxy != null )
         {
-            sb.append( "    proxy: " ).append( proxy.getHost() ).append( ':' ).append( proxy.getPort() ).append( '\n' );
+            sb.append( LS ).append( "    proxy: " ).append( proxy.getHost() ).append( ':' ).append( proxy.getPort() );
         }
 
         if ( snapshots != null )
         {
-            sb.append( "snapshots: [enabled => " ).append( snapshots.isEnabled() );
-            sb.append( ", update => " ).append( snapshots.getUpdatePolicy() ).append( "]\n" );
+            sb.append( LS ).append( "snapshots: [enabled => " ).append( snapshots.isEnabled() );
+            sb.append( ", update => " ).append( snapshots.getUpdatePolicy() ).append( ']' );
         }
 
         if ( releases != null )
         {
-            sb.append( " releases: [enabled => " ).append( releases.isEnabled() );
-            sb.append( ", update => " ).append( releases.getUpdatePolicy() ).append( "]\n" );
+            sb.append( LS ).append( "releases: [enabled => " ).append( releases.isEnabled() );
+            sb.append( ", update => " ).append( releases.getUpdatePolicy() ).append( ']' );
         }
+
+        sb.append( "   blocked: " ).append( isBlocked() ).append( '\n' );
 
         return sb.toString();
     }
@@ -412,6 +418,16 @@ public class MavenArtifactRepository
         {
             this.mirroredRepositories = Collections.emptyList();
         }
+    }
+
+    public boolean isBlocked()
+    {
+        return blocked;
+    }
+
+    public void setBlocked( boolean blocked )
+    {
+        this.blocked = blocked;
     }
 
 }
