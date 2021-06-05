@@ -102,7 +102,10 @@ class DefaultModelResolver
         this.versionRangeResolver = original.versionRangeResolver;
         this.remoteRepositoryManager = original.remoteRepositoryManager;
         this.repositories = new ArrayList<>( original.repositories );
+  <<<<<<< MNG-4645+MNG-6772
+  =======
         this.externalRepositories = original.externalRepositories;
+  >>>>>>> master
         this.repositoryIds = new HashSet<>( original.repositoryIds );
     }
 
