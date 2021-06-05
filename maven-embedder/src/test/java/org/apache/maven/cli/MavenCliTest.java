@@ -21,24 +21,26 @@ package org.apache.maven.cli;
 
 import static java.util.Arrays.asList;
 import static org.apache.maven.cli.MavenCli.performProfileActivation;
-import static org.apache.maven.cli.MavenCli.determineProjectActivation;
+import static org.apache.maven.cli.MavenCli.performProjectActivation;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.hamcrest.collection.IsIterableContainingInOrder.contains;
-import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
@@ -52,6 +54,7 @@ import org.apache.maven.Maven;
 import org.apache.maven.eventspy.internal.EventSpyDispatcher;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.ProfileActivation;
+import org.apache.maven.execution.ProjectActivation;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.utils.logging.MessageUtils;
 import org.apache.maven.toolchain.building.ToolchainsBuildingRequest;
@@ -119,27 +122,27 @@ public class MavenCliTest
     @Test
     public void testDetermineProjectActivation() throws ParseException
     {
-        MavenCli.ProjectActivation result;
-        Options options = new Options();
+        final Parser parser = new GnuParser();
+
+        final Options options = new Options();
         options.addOption( Option.builder( CLIManager.PROJECT_LIST ).hasArg().build() );
 
-        result = determineProjectActivation( new GnuParser().parse( options, new String[0] ) );
-        assertThat( result.activeProjects, is( nullValue() ) );
-        assertThat( result.inactiveProjects, is( nullValue() ) );
+        ProjectActivation activation;
 
-        result = determineProjectActivation( new GnuParser().parse( options, new String[]{ "-pl", "test1,+test2" } ) );
-        assertThat( result.activeProjects.size(), is( 2 ) );
-        assertThat( result.activeProjects, contains( "test1", "test2" ) );
+        activation = new ProjectActivation();
+        performProjectActivation( parser.parse( options, new String[]{ "-pl", "test1,+test2,?test3,+?test4" } ), activation );
+        assertThat( activation.getRequiredActiveProjectSelectors(), containsInAnyOrder( "test1", "test2" ) );
+        assertThat( activation.getOptionalActiveProjectSelectors(), containsInAnyOrder( "test3", "test4" ) );
 
-        result = determineProjectActivation( new GnuParser().parse( options, new String[]{ "-pl", "!test1,-test2" } ) );
-        assertThat( result.inactiveProjects.size(), is( 2 ) );
-        assertThat( result.inactiveProjects, contains( "test1", "test2" ) );
+        activation = new ProjectActivation();
+        performProjectActivation( parser.parse( options, new String[]{ "-pl", "!test1,-test2,-?test3,!?test4" } ), activation );
+        assertThat( activation.getRequiredInactiveProjectSelectors(), containsInAnyOrder( "test1", "test2" ) );
+        assertThat( activation.getOptionalInactiveProjectSelectors(), containsInAnyOrder( "test3", "test4" ) );
 
-        result = determineProjectActivation( new GnuParser().parse( options, new String[]{ "-pl" ,"-test1,+test2" } ) );
-        assertThat( result.activeProjects.size(), is( 1 ) );
-        assertThat( result.activeProjects, contains( "test2" ) );
-        assertThat( result.inactiveProjects.size(), is( 1 ) );
-        assertThat( result.inactiveProjects, contains( "test1" ) );
+        activation = new ProjectActivation();
+        performProjectActivation( parser.parse( options, new String[]{ "-pl", "-test1,+test2" } ), activation );
+        assertThat( activation.getRequiredActiveProjectSelectors(), containsInAnyOrder( "test2" ) );
+        assertThat( activation.getRequiredInactiveProjectSelectors(), containsInAnyOrder( "test1" ) );
     }
 
     @Test
@@ -322,6 +325,7 @@ public class MavenCliTest
 
         MessageUtils.setColorEnabled( true );
         request = new CliRequest( new String[] { "-l", "target/temp/mvn.log" }, null );
+        request.workingDirectory = "target/temp";
         cli.cli( request );
         cli.properties( request );
         cli.logging( request );
@@ -343,6 +347,7 @@ public class MavenCliTest
 
         MessageUtils.setColorEnabled( false );
         request = new CliRequest( new String[] { "-Dstyle.color=always", "-B", "-l", "target/temp/mvn.log" }, null );
+        request.workingDirectory = "target/temp";
         cli.cli( request );
         cli.properties( request );
         cli.logging( request );
@@ -350,6 +355,7 @@ public class MavenCliTest
 
         MessageUtils.setColorEnabled( false );
         CliRequest maybeColorRequest = new CliRequest( new String[] { "-Dstyle.color=maybe", "-B", "-l", "target/temp/mvn.log" }, null );
+        request.workingDirectory = "target/temp";
         cli.cli( maybeColorRequest );
         cli.properties( maybeColorRequest );
         assertThrows(
@@ -441,6 +447,38 @@ public class MavenCliTest
                 is( notNullValue() ) );
         assertThat( executionRequest.getLocalRepositoryPath().toString(),
                 is( "." + File.separatorChar + "custom2" ) );
+    }
+
+    /**
+     * MNG-7032: Disable colours for {@code --version} if {@code --batch-mode} is also given.
+     * @throws Exception cli invocation.
+     */
+    @Test
+    public void testVersionStringWithoutAnsi() throws Exception
+    {
+        // given
+        // - request with version and batch mode
+        CliRequest cliRequest = new CliRequest( new String[] {
+                "--version",
+                "--batch-mode"
+        }, null );
+        ByteArrayOutputStream systemOut = new ByteArrayOutputStream();
+        PrintStream oldOut = System.out;
+        System.setOut( new PrintStream( systemOut ) );
+
+        // when
+        try {
+            cli.cli( cliRequest );
+        } catch ( MavenCli.ExitException exitException ) {
+            // expected
+        } finally {
+            // restore sysout
+            System.setOut( oldOut );
+        }
+        String versionOut = new String( systemOut.toByteArray(), StandardCharsets.UTF_8 );
+
+        // then
+        assertEquals( MessageUtils.stripAnsiCodes( versionOut ), versionOut );
     }
 
     private MavenProject createMavenProject( String groupId, String artifactId )

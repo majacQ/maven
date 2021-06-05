@@ -50,6 +50,7 @@ import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.building.Source;
 import org.apache.maven.feature.Features;
 import org.apache.maven.model.Activation;
+import org.apache.maven.model.ActivationFile;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
@@ -74,11 +75,13 @@ import org.apache.maven.model.merge.ModelMerger;
 import org.apache.maven.model.normalization.ModelNormalizer;
 import org.apache.maven.model.path.ModelPathTranslator;
 import org.apache.maven.model.path.ModelUrlNormalizer;
+import org.apache.maven.model.path.ProfileActivationFilePathInterpolator;
 import org.apache.maven.model.plugin.LifecycleBindingsInjector;
 import org.apache.maven.model.plugin.PluginConfigurationExpander;
 import org.apache.maven.model.plugin.ReportConfigurationExpander;
 import org.apache.maven.model.plugin.ReportingConverter;
 import org.apache.maven.model.profile.DefaultProfileActivationContext;
+import org.apache.maven.model.profile.ProfileActivationContext;
 import org.apache.maven.model.profile.ProfileInjector;
 import org.apache.maven.model.profile.ProfileSelector;
 import org.apache.maven.model.resolution.InvalidRepositoryException;
@@ -87,6 +90,7 @@ import org.apache.maven.model.resolution.UnresolvableModelException;
 import org.apache.maven.model.resolution.WorkspaceModelResolver;
 import org.apache.maven.model.superpom.SuperPomProvider;
 import org.apache.maven.model.validation.ModelValidator;
+import org.codehaus.plexus.interpolation.InterpolationException;
 import org.codehaus.plexus.interpolation.MapBasedValueSource;
 import org.codehaus.plexus.interpolation.StringSearchInterpolator;
 import org.eclipse.sisu.Nullable;
@@ -152,6 +156,9 @@ public class DefaultModelBuilder
     private ReportingConverter reportingConverter;
 
     private ModelMerger modelMerger = new FileToRawModelMerger();
+
+    @Inject
+    private ProfileActivationFilePathInterpolator profileActivationFilePathInterpolator;
 
     public DefaultModelBuilder setModelProcessor( ModelProcessor modelProcessor )
     {
@@ -255,12 +262,19 @@ public class DefaultModelBuilder
         return this;
     }
 
+    public DefaultModelBuilder setProfileActivationFilePathInterpolator(
+            ProfileActivationFilePathInterpolator profileActivationFilePathInterpolator )
+    {
+        this.profileActivationFilePathInterpolator = profileActivationFilePathInterpolator;
+        return this;
+    }
+
     @Override
     public DefaultTransformerContextBuilder newTransformerContextBuilder()
     {
         return new DefaultTransformerContextBuilder();
     }
-
+    
     @Override
     public ModelBuildingResult build( ModelBuildingRequest request )
         throws ModelBuildingException
@@ -401,7 +415,11 @@ public class DefaultModelBuilder
             // model normalization
             modelNormalizer.mergeDuplicates( tmpModel, request, problems );
 
-            Map<String, Activation> interpolatedActivations = getProfileActivations( tmpModel, false );
+            profileActivationContext.setProjectProperties( tmpModel.getProperties() );
+
+            Map<String, Activation> interpolatedActivations = getInterpolatedActivations( rawModel,
+                                                                                          profileActivationContext, 
+                                                                                          problems );
             injectProfileActivations( tmpModel, interpolatedActivations );
 
             // profile injection
@@ -476,7 +494,60 @@ public class DefaultModelBuilder
 
         result.setEffectiveModel( resultModel );
 
+        // Now the fully interpolated model is available: reconfigure the resolver
+        configureResolver( request.getModelResolver(), resultModel, problems, true );
+
         return resultModel;
+    }
+
+    private Map<String, Activation> getInterpolatedActivations( Model rawModel,
+                                                                DefaultProfileActivationContext context,
+                                                                DefaultModelProblemCollector problems )
+    {
+        Map<String, Activation> interpolatedActivations = getProfileActivations( rawModel, true );
+        for ( Activation activation : interpolatedActivations.values() )
+        {
+            if ( activation.getFile() != null )
+            {
+                replaceWithInterpolatedValue( activation.getFile(), context, problems );
+            }
+        }
+        return interpolatedActivations;
+    }
+
+    private void replaceWithInterpolatedValue( ActivationFile activationFile, ProfileActivationContext context,
+                                               DefaultModelProblemCollector problems  )
+    {
+        try
+        {
+            if ( isNotEmpty( activationFile.getExists() ) )
+            {
+                String path = activationFile.getExists();
+                String absolutePath = profileActivationFilePathInterpolator.interpolate( path, context );
+                activationFile.setExists( absolutePath );
+            }
+            else if ( isNotEmpty( activationFile.getMissing() ) )
+            {
+                String path = activationFile.getMissing();
+                String absolutePath = profileActivationFilePathInterpolator.interpolate( path, context );
+                activationFile.setMissing( absolutePath );
+            }
+        }
+        catch ( InterpolationException e )
+        {
+            String path = isNotEmpty(
+                    activationFile.getExists() ) ? activationFile.getExists() : activationFile.getMissing();
+
+            problems.add( new ModelProblemCollectorRequest( Severity.ERROR, Version.BASE ).setMessage(
+                    "Failed to interpolate file location " + path + ": " + e.getMessage() ).setLocation(
+                    activationFile.getLocation( isNotEmpty( activationFile.getExists() ) ? "exists" : "missing"  ) )
+                    .setException( e ) );
+        }
+    }
+
+    private static boolean isNotEmpty( String string ) 
+    {
+        return string != null && !string.isEmpty();
     }
 
     @Override
@@ -807,6 +878,12 @@ public class DefaultModelBuilder
 
     private void configureResolver( ModelResolver modelResolver, Model model, DefaultModelProblemCollector problems )
     {
+        configureResolver( modelResolver, model, problems, false );
+    }
+
+    private void configureResolver( ModelResolver modelResolver, Model model, DefaultModelProblemCollector problems,
+                                    boolean replaceRepositories )
+    {
         if ( modelResolver == null )
         {
             return;
@@ -820,7 +897,7 @@ public class DefaultModelBuilder
         {
             try
             {
-                modelResolver.addRepository( repository, false );
+                modelResolver.addRepository( repository, replaceRepositories );
             }
             catch ( InvalidRepositoryException e )
             {
@@ -1414,11 +1491,15 @@ public class DefaultModelBuilder
             final ModelBuildingResult importResult;
             try
             {
-                ModelBuildingRequest importRequest = new DefaultModelBuildingRequest( request )
-                        .setTwoPhaseBuilding( false )
-                        .setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL )
-                        .setModelSource( importSource )
-                        .setModelResolver( modelResolver.newCopy() );
+                ModelBuildingRequest importRequest = new DefaultModelBuildingRequest();
+                importRequest.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL );
+                importRequest.setModelCache( request.getModelCache() );
+                importRequest.setSystemProperties( request.getSystemProperties() );
+                importRequest.setUserProperties( request.getUserProperties() );
+                importRequest.setLocationTracking( request.isLocationTracking() );
+
+                importRequest.setModelSource( importSource );
+                importRequest.setModelResolver( modelResolver.newCopy() );
 
                 importResult = build( importRequest, importIds );
             }
@@ -1567,13 +1648,16 @@ public class DefaultModelBuilder
                 public Model getRawModel( String gId, String aId )
                 {
                     return context.modelByGA.computeIfAbsent( new DefaultTransformerContext.GAKey( gId, aId ),
-                                                              k -> findRawModel( gId, aId ) );
+                                                              k -> new DefaultTransformerContext.Holder() )
+                            .computeIfAbsent( () -> findRawModel( gId, aId ) );
                 }
 
                 @Override
                 public Model getRawModel( Path path )
                 {
-                    return context.modelByPath.computeIfAbsent( path, k -> findRawModel( path ) );
+                    return context.modelByPath.computeIfAbsent( path,
+                                                                k -> new DefaultTransformerContext.Holder() )
+                            .computeIfAbsent( () -> findRawModel( path ) );
                 }
 
                 private Model findRawModel( String groupId, String artifactId )

@@ -55,6 +55,7 @@ import org.apache.maven.execution.MavenExecutionRequestPopulationException;
 import org.apache.maven.execution.MavenExecutionRequestPopulator;
 import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.execution.ProfileActivation;
+import org.apache.maven.execution.ProjectActivation;
 import org.apache.maven.execution.scope.internal.MojoExecutionScopeModule;
 import org.apache.maven.extension.internal.CoreExports;
 import org.apache.maven.extension.internal.CoreExtensionEntry;
@@ -113,12 +114,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.Comparator.comparing;
+import static org.apache.maven.cli.CLIManager.COLOR;
 import static org.apache.maven.cli.ResolveFile.resolveFile;
 import static org.apache.maven.shared.utils.logging.MessageUtils.buffer;
 
@@ -171,6 +172,8 @@ public class MavenCli
     private DefaultSecDispatcher dispatcher;
 
     private Map<String, ConfigurationProcessor> configurationProcessors;
+
+    private CLIManager cliManager;
 
     public MavenCli()
     {
@@ -284,6 +287,7 @@ public class MavenCli
             cli( cliRequest );
             properties( cliRequest );
             logging( cliRequest );
+            informativeCommands( cliRequest );
             version( cliRequest );
             localContainer = container( cliRequest );
             commands( cliRequest );
@@ -373,7 +377,7 @@ public class MavenCli
         //
         slf4jLogger = new Slf4jStdoutLogger();
 
-        CLIManager cliManager = new CLIManager();
+        cliManager = new CLIManager();
 
         List<String> args = new ArrayList<>();
         CommandLine mavenConfig = null;
@@ -423,7 +427,10 @@ public class MavenCli
             cliManager.displayHelp( System.out );
             throw e;
         }
+    }
 
+    private void informativeCommands( CliRequest cliRequest ) throws ExitException
+    {
         if ( cliRequest.commandLine.hasOption( CLIManager.HELP ) )
         {
             cliManager.displayHelp( System.out );
@@ -504,6 +511,7 @@ public class MavenCli
 
         // LOG COLOR
         String styleColor = cliRequest.getUserProperties().getProperty( STYLE_COLOR_PROPERTY, "auto" );
+        styleColor = cliRequest.commandLine.getOptionValue( COLOR, styleColor );
         if ( "always".equals( styleColor ) )
         {
             MessageUtils.setColorEnabled( true );
@@ -1356,7 +1364,7 @@ public class MavenCli
         File baseDirectory = new File( workingDirectory, "" ).getAbsoluteFile();
 
         disableOnPresentOption( commandLine, CLIManager.BATCH_MODE, request::setInteractiveMode );
-        enableOnPresentOption( commandLine, CLIManager.SUPRESS_SNAPSHOT_UPDATES, request::setNoSnapshotUpdates );
+        enableOnPresentOption( commandLine, CLIManager.SUPPRESS_SNAPSHOT_UPDATES, request::setNoSnapshotUpdates );
         request.setGoals( commandLine.getArgList() );
         request.setReactorFailureBehavior( determineReactorFailureBehaviour ( commandLine ) );
         disableOnPresentOption( commandLine, CLIManager.NON_RECURSIVE, request::setRecursive );
@@ -1382,10 +1390,7 @@ public class MavenCli
         request.setCacheNotFound( true );
         request.setCacheTransferError( false );
 
-        final ProjectActivation projectActivation = determineProjectActivation( commandLine );
-        request.setSelectedProjects( projectActivation.activeProjects );
-        request.setExcludedProjects( projectActivation.inactiveProjects );
-
+        performProjectActivation( commandLine, request.getProjectActivation() );
         performProfileActivation( commandLine, request.getProfileActivation() );
 
         final String localRepositoryPath = determineLocalRepositoryPath( request );
@@ -1472,48 +1477,44 @@ public class MavenCli
     }
 
     // Visible for testing
-    static ProjectActivation determineProjectActivation ( final CommandLine commandLine )
+    static void performProjectActivation( final CommandLine commandLine, final ProjectActivation projectActivation )
     {
-        final ProjectActivation projectActivation = new ProjectActivation();
-
         if ( commandLine.hasOption( CLIManager.PROJECT_LIST ) )
         {
-            String[] projectOptionValues = commandLine.getOptionValues( CLIManager.PROJECT_LIST );
+            final String[] optionValues = commandLine.getOptionValues( CLIManager.PROJECT_LIST );
 
-            if ( projectOptionValues != null )
+            if ( optionValues == null || optionValues.length == 0 )
             {
-                for ( String projectOptionValue : projectOptionValues )
-                {
-                    StringTokenizer projectTokens = new StringTokenizer( projectOptionValue, "," );
-
-                    while ( projectTokens.hasMoreTokens() )
-                    {
-                        String projectAction = projectTokens.nextToken().trim();
-
-                        if ( projectAction.startsWith( "-" ) || projectAction.startsWith( "!" ) )
-                        {
-                            projectActivation.deactivate( projectAction.substring( 1 ) );
-                        }
-                        else if ( projectAction.startsWith( "+" ) )
-                        {
-                            projectActivation.activate( projectAction.substring( 1 ) );
-                        }
-                        else
-                        {
-                            projectActivation.activate( projectAction );
-                        }
-                    }
-                }
+                return;
             }
 
-        }
+            for ( final String optionValue : optionValues )
+            {
+                for ( String token : optionValue.split( "," ) )
+                {
+                    String selector = token.trim();
+                    boolean active = true;
+                    if ( selector.charAt( 0 ) == '-' || selector.charAt( 0 ) == '!' )
+                    {
+                        active = false;
+                        selector = selector.substring( 1 );
+                    }
+                    else if ( token.charAt( 0 ) == '+' )
+                    {
+                        selector = selector.substring( 1 );
+                    }
 
-        return projectActivation;
+                    boolean optional = selector.charAt( 0 ) == '?';
+                    selector = selector.substring( optional ? 1 : 0 );
+
+                    projectActivation.addProjectActivation( selector, active, optional );
+                }
+            }
+        }
     }
 
     // Visible for testing
-    static void performProfileActivation( final CommandLine commandLine,
-                                          final ProfileActivation profileActivation )
+    static void performProfileActivation( final CommandLine commandLine, final ProfileActivation profileActivation )
     {
         if ( commandLine.hasOption( CLIManager.ACTIVATE_PROFILES ) )
         {
@@ -1799,30 +1800,5 @@ public class MavenCli
         throws ComponentLookupException
     {
         return container.lookup( ModelProcessor.class );
-    }
-
-    // Visible for testing
-    static class ProjectActivation
-    {
-        List<String> activeProjects;
-        List<String> inactiveProjects;
-
-        public void deactivate( final String project )
-        {
-            if ( inactiveProjects == null )
-            {
-                inactiveProjects = new ArrayList<>();
-            }
-            inactiveProjects.add( project );
-        }
-
-        public void activate( final String project )
-        {
-            if ( activeProjects == null )
-            {
-                activeProjects = new ArrayList<>();
-            }
-            activeProjects.add( project );
-        }
     }
 }
