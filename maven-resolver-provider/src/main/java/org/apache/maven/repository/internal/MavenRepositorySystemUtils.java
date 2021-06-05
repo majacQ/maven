@@ -59,6 +59,28 @@ public final class MavenRepositorySystemUtils
     }
 
     /**
+  <<<<<<< MRESOLVER-157
+  =======
+     * Creates a new service locator that already knows about all service implementations included in this library. To
+     * acquire a complete repository system, clients need to add some repository connectors for remote transfers.
+     *
+     * @return The new service locator, never {@code null}.
+     * @deprecated This method is deprecated along with {@link DefaultServiceLocator} (since Maven Resolver 1.7.0).
+     */
+    @Deprecated
+    public static DefaultServiceLocator newServiceLocator()
+    {
+        DefaultServiceLocator locator = new DefaultServiceLocator();
+        locator.addService( ArtifactDescriptorReader.class, DefaultArtifactDescriptorReader.class );
+        locator.addService( VersionResolver.class, DefaultVersionResolver.class );
+        locator.addService( VersionRangeResolver.class, DefaultVersionRangeResolver.class );
+        locator.addService( MetadataGeneratorFactory.class, SnapshotMetadataGeneratorFactory.class );
+        locator.addService( MetadataGeneratorFactory.class, VersionsMetadataGeneratorFactory.class );
+        return locator;
+    }
+
+    /**
+  >>>>>>> master
      * Creates a new Maven-like repository system session by initializing the session with values typical for
      * Maven-based resolution. In more detail, this method configures settings relevant for the processing of dependency
      * graphs, most other settings remain at their generic default value. Use the various setters to further configure

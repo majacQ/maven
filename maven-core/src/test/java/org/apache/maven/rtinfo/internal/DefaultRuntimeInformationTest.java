@@ -20,10 +20,7 @@ package org.apache.maven.rtinfo.internal;
  */
 
 import org.apache.maven.rtinfo.RuntimeInformation;
-import org.codehaus.plexus.ContainerConfiguration;
-import org.codehaus.plexus.PlexusConstants;
-import org.apache.maven.test.PlexusTestCase;
-import org.junit.jupiter.api.BeforeEach;
+import org.codehaus.plexus.testing.PlexusTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,20 +30,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import javax.inject.Inject;
 
+@PlexusTest
 public class DefaultRuntimeInformationTest
-    extends PlexusTestCase
 {
     @Inject
     RuntimeInformation rtInfo;
-
-    @Override
-    protected void customizeContainerConfiguration(
-            ContainerConfiguration configuration)
-    {
-        super.customizeContainerConfiguration(configuration);
-        configuration.setAutoWiring(true);
-        configuration.setClassPathScanning(PlexusConstants.SCANNING_INDEX);
-    }
 
     @Test
     public void testGetMavenVersion()

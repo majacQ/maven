@@ -27,9 +27,10 @@ import org.apache.maven.model.building.ModelBuildingException;
 import org.apache.maven.model.building.ModelProblem;
 import org.apache.maven.repository.RepositorySystem;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
-import org.apache.maven.test.PlexusTestCase;
+import org.codehaus.plexus.testing.PlexusTest;
+import org.codehaus.plexus.PlexusContainer;
+import org.eclipse.aether.DefaultRepositoryCache;
 import org.eclipse.aether.DefaultRepositorySystemSession;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 import javax.inject.Inject;
@@ -37,40 +38,39 @@ import javax.inject.Inject;
 /**
  * @author Jason van Zyl
  */
+@PlexusTest
 public abstract class AbstractMavenProjectTestCase
-    extends PlexusTestCase
 {
     protected ProjectBuilder projectBuilder;
 
     @Inject
     protected RepositorySystem repositorySystem;
 
+    @Inject
+    protected PlexusContainer container;
+
+    public PlexusContainer getContainer() {
+        return container;
+    }
+
     @BeforeEach
     public void setUp()
         throws Exception
     {
-        super.setUp();
-
         if ( getContainer().hasComponent( ProjectBuilder.class, "test" ) )
         {
-            projectBuilder = lookup( ProjectBuilder.class, "test" );
+            projectBuilder = getContainer().lookup( ProjectBuilder.class, "test" );
         }
         else
         {
             // default over to the main project builder...
-            projectBuilder = lookup( ProjectBuilder.class );
+            projectBuilder = getContainer().lookup( ProjectBuilder.class );
         }
     }
 
     protected ProjectBuilder getProjectBuilder()
     {
         return projectBuilder;
-    }
-
-    @Override
-    protected String getCustomConfigurationName()
-    {
-        return AbstractMavenProjectTestCase.class.getName().replace( '.', '/' ) + ".xml";
     }
 
     // ----------------------------------------------------------------------
@@ -171,6 +171,7 @@ public abstract class AbstractMavenProjectTestCase
     {
         File localRepo = new File( request.getLocalRepository().getBasedir() );
         DefaultRepositorySystemSession repoSession = MavenRepositorySystemUtils.newSession();
+        repoSession.setCache( new DefaultRepositoryCache() );
         repoSession.setLocalRepositoryManager( new LegacyLocalRepositoryManager( localRepo ) );
         request.setRepositorySession( repoSession );
     }

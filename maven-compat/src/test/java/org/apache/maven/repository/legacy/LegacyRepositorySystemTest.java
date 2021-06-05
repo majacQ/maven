@@ -22,9 +22,7 @@ import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.repository.RepositorySystem;
 import org.apache.maven.settings.Server;
-import org.apache.maven.test.PlexusTestCase;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.codehaus.plexus.testing.PlexusTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,8 +35,8 @@ import javax.inject.Inject;
  *
  * @author Benjamin Bentmann
  */
+@PlexusTest
 public class LegacyRepositorySystemTest
-    extends PlexusTestCase
 {
     @Inject
     private RepositorySystem repositorySystem;
