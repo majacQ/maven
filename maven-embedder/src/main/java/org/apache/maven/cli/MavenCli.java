@@ -54,6 +54,8 @@ import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenExecutionRequestPopulationException;
 import org.apache.maven.execution.MavenExecutionRequestPopulator;
 import org.apache.maven.execution.MavenExecutionResult;
+import org.apache.maven.execution.ProfileActivation;
+import org.apache.maven.execution.ProjectActivation;
 import org.apache.maven.execution.scope.internal.MojoExecutionScopeModule;
 import org.apache.maven.extension.internal.CoreExports;
 import org.apache.maven.extension.internal.CoreExtensionEntry;
@@ -82,6 +84,7 @@ import org.codehaus.plexus.component.repository.exception.ComponentLookupExcepti
 import org.codehaus.plexus.logging.LoggerManager;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
+import org.eclipse.aether.DefaultRepositoryCache;
 import org.eclipse.aether.transfer.TransferListener;
 import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
@@ -103,7 +106,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -112,12 +114,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.Comparator.comparing;
+import static org.apache.maven.cli.CLIManager.COLOR;
 import static org.apache.maven.cli.ResolveFile.resolveFile;
 import static org.apache.maven.shared.utils.logging.MessageUtils.buffer;
 
@@ -149,8 +151,6 @@ public class MavenCli
 
     public static final String STYLE_COLOR_PROPERTY = "style.color";
 
-    private static final String[] DEPRECATED_OPTIONS = { "up", "npu", "cpu", "npr" };
-
     private ClassWorld classWorld;
 
     private LoggerManager plexusLoggerManager;
@@ -172,6 +172,8 @@ public class MavenCli
     private DefaultSecDispatcher dispatcher;
 
     private Map<String, ConfigurationProcessor> configurationProcessors;
+
+    private CLIManager cliManager;
 
     public MavenCli()
     {
@@ -285,6 +287,7 @@ public class MavenCli
             cli( cliRequest );
             properties( cliRequest );
             logging( cliRequest );
+            informativeCommands( cliRequest );
             version( cliRequest );
             localContainer = container( cliRequest );
             commands( cliRequest );
@@ -374,7 +377,7 @@ public class MavenCli
         //
         slf4jLogger = new Slf4jStdoutLogger();
 
-        CLIManager cliManager = new CLIManager();
+        cliManager = new CLIManager();
 
         List<String> args = new ArrayList<>();
         CommandLine mavenConfig = null;
@@ -424,7 +427,15 @@ public class MavenCli
             cliManager.displayHelp( System.out );
             throw e;
         }
+    }
 
+  <<<<<<< MNG-7032_versioncolours
+        applyColorMode( cliRequest );
+
+  =======
+    private void informativeCommands( CliRequest cliRequest ) throws ExitException
+    {
+  >>>>>>> master
         if ( cliRequest.commandLine.hasOption( CLIManager.HELP ) )
         {
             cliManager.displayHelp( System.out );
@@ -505,6 +516,7 @@ public class MavenCli
 
         // LOG COLOR
         String styleColor = cliRequest.getUserProperties().getProperty( STYLE_COLOR_PROPERTY, "auto" );
+        styleColor = cliRequest.commandLine.getOptionValue( COLOR, styleColor );
         if ( "always".equals( styleColor ) )
         {
             MessageUtils.setColorEnabled( true );
@@ -517,11 +529,6 @@ public class MavenCli
         {
             throw new IllegalArgumentException( "Invalid color configuration option [" + styleColor
                 + "]. Supported values are (auto|always|never)." );
-        }
-        else if ( cliRequest.commandLine.hasOption( CLIManager.BATCH_MODE )
-            || cliRequest.commandLine.hasOption( CLIManager.LOG_FILE ) )
-        {
-            MessageUtils.setColorEnabled( false );
         }
 
         // LOG STREAMS
@@ -566,6 +573,20 @@ public class MavenCli
                         + "The --fail-on-severity flag will not take effect.",
                         MavenSlf4jWrapperFactory.class.getName(), slf4jLoggerFactory.getClass().getName() );
             }
+        }
+    }
+
+    /**
+     * Disables the colour output in the case that the {@link CLIManager#BATCH_MODE} option
+     * or {@link CLIManager#LOG_FILE} option was given (or both). In those cases, ANSI output is never feasible.
+     * @param cliRequest the arguments as request pojo.
+     */
+    private void applyColorMode( CliRequest cliRequest )
+    {
+        if ( cliRequest.commandLine.hasOption( CLIManager.BATCH_MODE )
+                || cliRequest.commandLine.hasOption( CLIManager.LOG_FILE ) )
+        {
+            MessageUtils.setColorEnabled( false );
         }
     }
 
@@ -793,7 +814,7 @@ public class MavenCli
         }
         catch ( Exception e )
         {
-            slf4jLogger.warn( "Failed to read extensions descriptor {}: {}", extensionsFile, e.getMessage() );
+            slf4jLogger.warn( "Failed to read extensions descriptor from '{}'", extensionsFile, e );
         }
         return Collections.emptyList();
     }
@@ -821,11 +842,11 @@ public class MavenCli
 
             extRealm.setParentRealm( coreRealm );
 
-            slf4jLogger.debug( "Populating class realm {}", extRealm.getId() );
+            slf4jLogger.debug( "Populating class realm '{}'", extRealm.getId() );
 
             for ( File file : extClassPath )
             {
-                slf4jLogger.debug( "  Included {}", file );
+                slf4jLogger.debug( "  included '{}'", file );
 
                 extRealm.addURL( file.toURI().toURL() );
             }
@@ -874,7 +895,7 @@ public class MavenCli
             {
                 File file = resolveFile( new File( jar ), cliRequest.workingDirectory );
 
-                slf4jLogger.debug( "  Included {}", file );
+                slf4jLogger.debug( "  included '{}'", file );
 
                 jars.add( file );
             }
@@ -977,6 +998,11 @@ public class MavenCli
     {
         MavenExecutionRequest request = executionRequestPopulator.populateDefaults( cliRequest.request );
 
+        if ( cliRequest.request.getRepositoryCache() == null )
+        {
+            cliRequest.request.setRepositoryCache( new DefaultRepositoryCache() );
+        }
+
         eventSpyDispatcher.onEvent( request );
 
         MavenExecutionResult result = maven.execute( request );
@@ -1009,12 +1035,12 @@ public class MavenCli
 
             if ( !cliRequest.showErrors )
             {
-                slf4jLogger.error( "To see the full stack trace of the errors, re-run Maven with the {} switch.",
+                slf4jLogger.error( "To see the full stack trace of the errors, re-run Maven with the '{}' switch.",
                         buffer().strong( "-e" ) );
             }
             if ( !slf4jLogger.isDebugEnabled() )
             {
-                slf4jLogger.error( "Re-run Maven using the {} switch to enable full debug logging.",
+                slf4jLogger.error( "Re-run Maven using the '{}' switch to enable full debug logging.",
                         buffer().strong( "-X" ) );
             }
 
@@ -1231,7 +1257,7 @@ public class MavenCli
             // There are too many ConfigurationProcessors so we don't know which one to run so report the error.
             //
             StringBuilder sb = new StringBuilder(
-                String.format( "\nThere can only be one user supplied ConfigurationProcessor, there are %s:\n\n",
+                String.format( "%nThere can only be one user supplied ConfigurationProcessor, there are %s:%n%n",
                                userSuppliedConfigurationProcessorCount ) );
             for ( Entry<String, ConfigurationProcessor> entry : configurationProcessors.entrySet() )
             {
@@ -1239,10 +1265,9 @@ public class MavenCli
                 if ( !hint.equals( SettingsXmlConfigurationProcessor.HINT ) )
                 {
                     ConfigurationProcessor configurationProcessor = entry.getValue();
-                    sb.append( String.format( "%s\n", configurationProcessor.getClass().getName() ) );
+                    sb.append( String.format( "%s%n", configurationProcessor.getClass().getName() ) );
                 }
             }
-            sb.append( "\n" );
             throw new Exception( sb.toString() );
         }
     }
@@ -1303,9 +1328,9 @@ public class MavenCli
 
         eventSpyDispatcher.onEvent( toolchainsRequest );
 
-        slf4jLogger.debug( "Reading global toolchains from {}",
+        slf4jLogger.debug( "Reading global toolchains from '{}'",
                 getLocation( toolchainsRequest.getGlobalToolchainsSource(), globalToolchainsFile ) );
-        slf4jLogger.debug( "Reading user toolchains from {}",
+        slf4jLogger.debug( "Reading user toolchains from '{}'",
                 getLocation( toolchainsRequest.getUserToolchainsSource(), userToolchainsFile ) );
 
         ToolchainsBuildingResult toolchainsResult = toolchainsBuilder.build( toolchainsRequest );
@@ -1352,10 +1377,8 @@ public class MavenCli
         request.setShowErrors( cliRequest.showErrors ); // default: false
         File baseDirectory = new File( workingDirectory, "" ).getAbsoluteFile();
 
-        handleDeprecatedOptions( commandLine );
-
         disableOnPresentOption( commandLine, CLIManager.BATCH_MODE, request::setInteractiveMode );
-        enableOnPresentOption( commandLine, CLIManager.SUPRESS_SNAPSHOT_UPDATES, request::setNoSnapshotUpdates );
+        enableOnPresentOption( commandLine, CLIManager.SUPPRESS_SNAPSHOT_UPDATES, request::setNoSnapshotUpdates );
         request.setGoals( commandLine.getArgList() );
         request.setReactorFailureBehavior( determineReactorFailureBehaviour ( commandLine ) );
         disableOnPresentOption( commandLine, CLIManager.NON_RECURSIVE, request::setRecursive );
@@ -1381,13 +1404,8 @@ public class MavenCli
         request.setCacheNotFound( true );
         request.setCacheTransferError( false );
 
-        final ProjectActivation projectActivation = determineProjectActivation( commandLine );
-        request.setSelectedProjects( projectActivation.activeProjects );
-        request.setExcludedProjects( projectActivation.inactiveProjects );
-
-        final ProfileActivation profileActivation = determineProfileActivation( commandLine );
-        request.addActiveProfiles( profileActivation.activeProfiles );
-        request.addInactiveProfiles( profileActivation.inactiveProfiles );
+        performProjectActivation( commandLine, request.getProjectActivation() );
+        performProfileActivation( commandLine, request.getProfileActivation() );
 
         final String localRepositoryPath = determineLocalRepositoryPath( request );
         if ( localRepositoryPath != null )
@@ -1473,81 +1491,77 @@ public class MavenCli
     }
 
     // Visible for testing
-    static ProjectActivation determineProjectActivation ( final CommandLine commandLine )
+    static void performProjectActivation( final CommandLine commandLine, final ProjectActivation projectActivation )
     {
-        final ProjectActivation projectActivation = new ProjectActivation();
-
         if ( commandLine.hasOption( CLIManager.PROJECT_LIST ) )
         {
-            String[] projectOptionValues = commandLine.getOptionValues( CLIManager.PROJECT_LIST );
+            final String[] optionValues = commandLine.getOptionValues( CLIManager.PROJECT_LIST );
 
-            if ( projectOptionValues != null )
+            if ( optionValues == null || optionValues.length == 0 )
             {
-                for ( String projectOptionValue : projectOptionValues )
-                {
-                    StringTokenizer projectTokens = new StringTokenizer( projectOptionValue, "," );
-
-                    while ( projectTokens.hasMoreTokens() )
-                    {
-                        String projectAction = projectTokens.nextToken().trim();
-
-                        if ( projectAction.startsWith( "-" ) || projectAction.startsWith( "!" ) )
-                        {
-                            projectActivation.deactivate( projectAction.substring( 1 ) );
-                        }
-                        else if ( projectAction.startsWith( "+" ) )
-                        {
-                            projectActivation.activate( projectAction.substring( 1 ) );
-                        }
-                        else
-                        {
-                            projectActivation.activate( projectAction );
-                        }
-                    }
-                }
+                return;
             }
 
-        }
+            for ( final String optionValue : optionValues )
+            {
+                for ( String token : optionValue.split( "," ) )
+                {
+                    String selector = token.trim();
+                    boolean active = true;
+                    if ( selector.charAt( 0 ) == '-' || selector.charAt( 0 ) == '!' )
+                    {
+                        active = false;
+                        selector = selector.substring( 1 );
+                    }
+                    else if ( token.charAt( 0 ) == '+' )
+                    {
+                        selector = selector.substring( 1 );
+                    }
 
-        return projectActivation;
+                    boolean optional = selector.charAt( 0 ) == '?';
+                    selector = selector.substring( optional ? 1 : 0 );
+
+                    projectActivation.addProjectActivation( selector, active, optional );
+                }
+            }
+        }
     }
 
     // Visible for testing
-    static ProfileActivation determineProfileActivation( final CommandLine commandLine )
+    static void performProfileActivation( final CommandLine commandLine, final ProfileActivation profileActivation )
     {
-        final ProfileActivation result = new ProfileActivation();
-
         if ( commandLine.hasOption( CLIManager.ACTIVATE_PROFILES ) )
         {
-            String[] profileOptionValues = commandLine.getOptionValues( CLIManager.ACTIVATE_PROFILES );
-            if ( profileOptionValues != null )
+            final String[] optionValues = commandLine.getOptionValues( CLIManager.ACTIVATE_PROFILES );
+
+            if ( optionValues == null || optionValues.length == 0 )
             {
-                for ( String profileOptionValue : profileOptionValues )
+                return;
+            }
+
+            for ( final String optionValue : optionValues )
+            {
+                for ( String token : optionValue.split( "," ) )
                 {
-                    StringTokenizer profileTokens = new StringTokenizer( profileOptionValue, "," );
-
-                    while ( profileTokens.hasMoreTokens() )
+                    String profileId = token.trim();
+                    boolean active = true;
+                    if ( profileId.charAt( 0 ) == '-' || profileId.charAt( 0 ) == '!' )
                     {
-                        String profileAction = profileTokens.nextToken().trim();
-
-                        if ( profileAction.startsWith( "-" ) || profileAction.startsWith( "!" ) )
-                        {
-                            result.deactivate( profileAction.substring( 1 ) );
-                        }
-                        else if ( profileAction.startsWith( "+" ) )
-                        {
-                            result.activate( profileAction.substring( 1 ) );
-                        }
-                        else
-                        {
-                            result.activate( profileAction );
-                        }
+                        active = false;
+                        profileId = profileId.substring( 1 );
                     }
+                    else if ( token.charAt( 0 ) == '+' )
+                    {
+                        profileId = profileId.substring( 1 );
+                    }
+
+                    boolean optional = profileId.charAt( 0 ) == '?';
+                    profileId = profileId.substring( optional ? 1 : 0 );
+
+                    profileActivation.addProfileActivation( profileId, active, optional );
                 }
             }
         }
-
-        return result;
     }
 
     private ExecutionListener determineExecutionListener()
@@ -1561,16 +1575,6 @@ public class MavenCli
         {
             return executionListener;
         }
-    }
-
-    private void handleDeprecatedOptions( final CommandLine commandLine )
-    {
-        Arrays.stream( DEPRECATED_OPTIONS )
-                .filter( commandLine::hasOption )
-                .forEach( deprecatedOption -> slf4jLogger.warn(
-                        "Command line option -{} is deprecated and will be removed in future Maven versions.",
-                        deprecatedOption )
-                );
     }
 
     private String determineReactorFailureBehaviour( final CommandLine commandLine )
@@ -1810,47 +1814,5 @@ public class MavenCli
         throws ComponentLookupException
     {
         return container.lookup( ModelProcessor.class );
-    }
-
-    // Visible for testing
-    static class ProfileActivation
-    {
-        final List<String> activeProfiles = new ArrayList<>();
-        final List<String> inactiveProfiles = new ArrayList<>();
-
-        public void deactivate( final String profile )
-        {
-            inactiveProfiles.add( profile );
-        }
-
-        public void activate( final String profile )
-        {
-            activeProfiles.add( profile );
-        }
-    }
-
-    // Visible for testing
-    static class ProjectActivation
-    {
-        List<String> activeProjects;
-        List<String> inactiveProjects;
-
-        public void deactivate( final String project )
-        {
-            if ( inactiveProjects == null )
-            {
-                inactiveProjects = new ArrayList<>();
-            }
-            inactiveProjects.add( project );
-        }
-
-        public void activate( final String project )
-        {
-            if ( activeProjects == null )
-            {
-                activeProjects = new ArrayList<>();
-            }
-            activeProjects.add( project );
-        }
     }
 }

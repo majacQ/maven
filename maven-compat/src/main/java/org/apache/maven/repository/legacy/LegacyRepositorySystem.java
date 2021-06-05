@@ -431,6 +431,8 @@ public class LegacyRepositorySystem
 
             effectiveRepository.setMirroredRepositories( mirroredRepos );
 
+            effectiveRepository.setBlocked( aliasedRepo.isBlocked() );
+
             effectiveRepositories.add( effectiveRepository );
         }
 
@@ -487,6 +489,7 @@ public class LegacyRepositorySystem
                     mirror.setId( repo.getId() );
                     mirror.setUrl( repo.getUrl() );
                     mirror.setLayout( repo.getContentType() );
+                    mirror.setBlocked( repo.isBlocked() );
                     return mirror;
                 }
             }
@@ -523,6 +526,8 @@ public class LegacyRepositorySystem
             {
                 repository.setLayout( getLayout( mirror.getLayout() ) );
             }
+
+            repository.setBlocked( mirror.isBlocked() );
         }
     }
 
