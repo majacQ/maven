@@ -28,6 +28,7 @@ import org.apache.maven.feature.Features;
 import org.apache.maven.model.building.TransformerContext;
 import org.apache.maven.model.building.TransformerException;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
+import org.apache.maven.rtinfo.RuntimeInformation;
 import org.apache.maven.settings.Mirror;
 import org.apache.maven.settings.Proxy;
 import org.apache.maven.settings.Server;
@@ -60,6 +61,7 @@ import org.eclipse.sisu.Nullable;
 
 import javax.inject.Inject;
 import javax.inject.Named;
+  <<<<<<< MODELTESTS_IMPROVEMENT
 
 import java.io.File;
 import java.io.IOException;
@@ -67,9 +69,10 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+  =======
+  >>>>>>> MRESOLVER-94
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Properties;
 
 /**
  * @since 3.3.0
@@ -79,6 +82,9 @@ public class DefaultRepositorySystemSessionFactory
 {
     @Inject
     private Logger logger;
+
+    @Inject
+    private RuntimeInformation runtimeInformation;
 
     @Inject
     private ArtifactHandlerManager artifactHandlerManager;
@@ -259,28 +265,12 @@ public class DefaultRepositorySystemSessionFactory
 
     private String getUserAgent()
     {
-        return "Apache-Maven/" + getMavenVersion() + " (Java " + System.getProperty( "java.version" ) + "; "
-            + System.getProperty( "os.name" ) + " " + System.getProperty( "os.version" ) + ")";
-    }
-
-    private String getMavenVersion()
-    {
-        Properties props = new Properties();
-
-        try ( InputStream is = getClass().getResourceAsStream(
-            "/META-INF/maven/org.apache.maven/maven-core/pom.properties" ) )
-        {
-            if ( is != null )
-            {
-                props.load( is );
-            }
-        }
-        catch ( IOException e )
-        {
-            logger.debug( "Failed to read Maven version", e );
-        }
-
-        return props.getProperty( "version", "unknown-version" );
+        String mavenVersion = runtimeInformation.getMavenVersion();
+        return String.format( "Apache-Maven%s (Java %s; %s %s)",
+                ( !mavenVersion.isEmpty() ? "/" + mavenVersion : "" ),
+                System.getProperty( "java.version" ),
+                System.getProperty( "os.name" ),
+                System.getProperty( "os.version" ) );
     }
 
     private Collection<FileTransformer> getTransformersForArtifact( final Artifact artifact,
